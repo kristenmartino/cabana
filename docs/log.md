@@ -16,5 +16,14 @@ n8n workflow exports. Day 1 first hour: `npm install` and reconcile dependency
 versions (scaffold versions are starting points, generated offline), commit
 the lockfile, then resolve OQ1–OQ3 before anything depends on them.
 
-## Day 1 —
-_What I did / what I decided / what I explicitly did not do:_
+## Day 1 — toolchain + local stack
+`npm install` reconciled offline scaffold versions (Next 15.5, React 19, @supabase/ssr
+0.6); lockfile committed. Typed `SetAllCookies` in SSR cookie handlers so strict
+typecheck passes; added `.eslintrc.json` (next/core-web-vitals + next/typescript) so
+`npm run lint` is non-interactive. `supabase init` + `supabase start` + `db reset`
+green after Docker Desktop came up. Seed exposed a bug in 0002: BEFORE INSERT logged
+to `booking_transitions` before the parent row existed — fixed in 0007 (append-only).
+Verified @supabase/ssr patterns match current docs (async `cookies()`, getAll/setAll).
+Did not: install global Supabase CLI (using `npx`), resolve OQ1–OQ3, wire edge fns.
+
+## Day 2 —
