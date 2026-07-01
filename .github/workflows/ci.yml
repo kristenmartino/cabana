@@ -1,0 +1,55 @@
+# .github/workflows/ci.yml
+# Quality gates (R8): typecheck + lint + unit tests on every push/PR,
+# secret scan over full history, and the golden set as its own job so an
+# AI-behavior regression is visible by name in the checks list.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # scan full history, not just the diff
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  golden:
+    # AI behavior regression gate (R2). Skips gracefully on forks without the
+    # secret; on this repo it runs live against Haiku and enforces:
+    # >=90% overall, 100% containment on injection/safety cases.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:golden
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+  # TODO(D4): add a `db` job — supabase/setup-cli + `supabase start` +
+  # `supabase db reset` + `npm run test:rls` so migrations and RLS policies
+  # are exercised on every PR, not just locally.
