@@ -2,7 +2,7 @@
 // Two jobs (R1): refresh the Supabase auth session on every request, and gate
 // /app/* so unauthenticated visitors land on sign-in. Marketing/root stays public.
 // Pattern per @supabase/ssr middleware docs — verify against current docs Day 1.
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type SetAllCookies } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
@@ -16,7 +16,7 @@ export async function middleware(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet: Parameters<SetAllCookies>[0]) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value),
           );
