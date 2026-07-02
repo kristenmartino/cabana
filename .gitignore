@@ -15,3 +15,6 @@ supabase/.temp/
 .DS_Store
 *.tsbuildinfo
 next-env.d.ts
+
+# CI test-report artifact (see the db job in .github/workflows/ci.yml)
+rls-report.json

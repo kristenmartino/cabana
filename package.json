@@ -9,9 +9,10 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --exclude tests/golden/**",
+    "test": "vitest run --exclude 'tests/golden/**' --exclude 'tests/rls/**' --exclude 'tests/webhooks/**' --passWithNoTests",
     "test:golden": "vitest run tests/golden",
     "test:rls": "vitest run tests/rls",
+    "test:webhooks": "vitest run tests/webhooks",
     "db:reset": "supabase db reset",
     "chaos": "tsx scripts/chaos/run.ts"
   },
@@ -27,11 +28,15 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@types/pg": "^8.20.0",
     "@types/react": "^19.0.0",
+    "@types/ws": "^8.18.1",
     "eslint": "^9.0.0",
     "eslint-config-next": "^15.3.0",
+    "pg": "^8.22.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
-    "vitest": "^2.1.0"
+    "vitest": "^2.1.0",
+    "ws": "^8.21.0"
   }
 }

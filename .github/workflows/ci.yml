@@ -50,6 +50,36 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
-  # TODO(D4): add a `db` job — supabase/setup-cli + `supabase start` +
-  # `supabase db reset` + `npm run test:rls` so migrations and RLS policies
-  # are exercised on every PR, not just locally.
+  db:
+    # Migrations + seed + the RLS adversarial suite + the stripe-webhook
+    # acceptance suite against a real local stack (R1/R3/R4/R8 — never-cut
+    # #1 and #2). The report guard fails the job if the RLS suite ever goes
+    # vacuous again (todo/skip-only runs count zero passed tests).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: edge-runtime env (dummy values — tests sign their own fixtures)
+        run: |
+          printf 'STRIPE_SECRET_KEY=sk_test_dummy_key_for_signing_only\nSTRIPE_WEBHOOK_SECRET=whsec_cabana_local_test\n' > supabase/functions/.env
+      - run: supabase start
+      - run: supabase db reset
+      - run: npm run test:rls -- --reporter=default --reporter=json --outputFile=rls-report.json
+      - run: npm run test:webhooks
+      - name: guard against a vacuous suite
+        run: |
+          node -e "
+            const r = require('./rls-report.json');
+            if (!(r.numPassedTests >= 12)) {
+              console.error('RLS suite looks vacuous: ' + r.numPassedTests + ' passed tests (todos/skips do not count).');
+              process.exit(1);
+            }
+            console.log('RLS suite: ' + r.numPassedTests + ' passed tests.');
+          "

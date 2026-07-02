@@ -371,6 +371,20 @@ authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration
 allow_dynamic_registration = false
 
+# Inbound webhook surfaces authenticate callers themselves — Stripe by
+# signature (ADR-03), Telegram by secret token + chat allowlist (ADR-07),
+# Airtable by shared secret + whitelist (ADR-01). None of these callers can
+# send a Supabase JWT, so gateway JWT verification must be off for them.
+# Deploys must mirror this: `supabase functions deploy <fn> --no-verify-jwt`.
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.telegram-webhook]
+verify_jwt = false
+
+[functions.airtable-writeback]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
