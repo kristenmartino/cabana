@@ -52,11 +52,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // TODO(D8): set actor 'office:airtable' for the transition audit, then:
-    //   field 'visit_notes'    -> update bookings.visit_notes
-    //   field 'mark_completed' -> transition 'confirmed' -> 'completed'
-    //     (the guard trigger rejects it from any other state; report that back
-    //      to Airtable as a comment/log rather than silently diverging)
+    // TODO(D8): apply via rpc('transition_booking', { p_actor: 'office:airtable' })
+    // for mark_completed ('confirmed' -> 'completed'; the guard trigger rejects
+    // it from any other state — report that back to Airtable as a comment/log
+    // rather than silently diverging), or a visit_notes update for notes.
     // Then log success to sync_log. The normal outbox flow re-projects the
     // change to Airtable, converging both sides.
 

@@ -67,8 +67,9 @@ Deno.serve(async (req) => {
     const cb = update.callback_query;
     await tg("answerCallbackQuery", { callback_query_id: cb.id });
     // callback_data convention: "approve:<booking_id>" | "needsinfo:<booking_id>"
-    // TODO(D8): set actor 'owner:telegram'; apply transition; on P0001
-    // (illegal transition) reply "already handled by <actor> at <time>".
+    // TODO(D8): apply transition via rpc('transition_booking', { p_actor:
+    // 'owner:telegram' }) (0008 — one transaction); on P0001 (illegal
+    // transition) reply "already handled by <actor> at <time>".
     return new Response("ok", { status: 200 });
   }
 

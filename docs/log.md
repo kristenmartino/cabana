@@ -77,3 +77,17 @@ closed RLS-suite blind spots (businesses/techs, memberships/plans reads, RPC
 execute-denial). devDeps: pg (transaction-level tests), ws (Node 20 realtime
 shim). Did not do: OQ1–OQ3 (still open — now the first item of Day 3) and all
 of the Gate-1 spine (needs vendor accounts). Traces: R1/R3/R4/R8 / ADR-03.
+
+Night: OQ1–OQ3 resolved and logged as ADR-09. OQ2 → Railway self-host: the
+decisive fact (verified against current docs) is that n8n Cloud has no
+instance stop/restart, and the Day-9 chaos run must kill n8n mid-stream.
+OQ1 → Airtable Free: Interfaces now exist on every tier; one Interface + 100
+automation runs/mo fits R6 at demo volume. OQ3 → Supabase cloud project
+`cabana` (uuviebpmiwzjyabucheo, us-east-1) created in the existing paid org:
+$10/mo buys away the free-tier 7-day auto-pause that would kill the reviewer
+demo link (M1); cost recorded for the README notes. Cloud provisioning begun
+the same sitting: migrations 0001–0009 + seed pushed via MCP, all three edge
+functions deployed with gateway JWT verification off (they authenticate
+callers themselves — ADR-03/07/01). Awaiting owner-side account steps:
+BotFather token, Railway n8n, Airtable base, Stripe test keys, `gh secret
+set ANTHROPIC_API_KEY`. Traces: R5/R6 shape unblocked / ADR-09.

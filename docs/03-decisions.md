@@ -126,3 +126,38 @@ Compact ADR format: Context → Options → Decision → Trade-offs accepted →
 **Trade-offs accepted:** Some qualified requests will route to human review unnecessarily (tunable threshold; the cost is Dana's time, the currency she chose to spend in D8). Haiku will misread genuinely ambiguous messages — by design those score low confidence and land with a human.
 
 **Revisit when:** golden-set failures concentrate in a category Haiku can't handle — escalate the model for that category only, justified by the eval, and record it here.
+
+---
+
+## ADR-09 — Vendor commitments: OQ1–OQ3 resolved (amendment, Day 2)
+
+**Context:** PRD OQ1–OQ3 flagged three vendor assumptions as blocking and
+required verification against current pricing before R5/R6 shape depended on
+them (build-plan §6 row 1). Verified 2026-07-01 against live pricing pages.
+
+**OQ2 — n8n hosting → Railway self-host (~$5/mo Hobby + usage).**
+Decisive fact: n8n Cloud offers no instance stop/restart — only per-execution
+stops — and the Day-9 chaos run must kill n8n mid-stream (never-cut #5).
+Railway gives a one-click n8n template, stable webhook URL, and a real kill
+switch. *Trade-off:* self-managed upgrades/backups; mitigated by workflow
+JSON exports versioned in `ops/n8n/` (the instance is disposable by design).
+*Revisit when:* execution volume outgrows a single instance.
+
+**OQ1 — Airtable → Free plan.** Interfaces now exist on every tier; Free
+includes exactly one Interface (R6 needs one: Marie's page), 100 automation
+runs/mo (write-back volume at demo scale), 1,000 records/base. $0.
+*Revisit when:* automation runs exhaust mid-month → Team ($20/editor/mo);
+the pre-cleared views-only fallback is no longer needed.
+
+**OQ3 — Supabase cloud → paid-org project ($10/mo compute).** Free tier
+would suffice on limits (500k edge invocations/mo, 500MB DB) but auto-pauses
+after 7 idle days — a dead reviewer demo link (M1). Project `cabana`
+(`uuviebpmiwzjyabucheo`, us-east-1) lives in the existing paid org: no pause,
+$10/mo recorded for the README cost notes (build-plan §7); delete after the
+portfolio cycle to stop billing. The D7 health-check keep-warm still ships
+(it is observability, not just anti-pause).
+
+**Deploy note (all three webhook fns):** gateway JWT verification is OFF —
+callers authenticate via Stripe signature / Telegram secret token / shared
+secret (ADR-03/07/01). Local config: `[functions.*] verify_jwt = false`;
+cloud deploys must match (`--no-verify-jwt` or MCP `verify_jwt: false`).
