@@ -52,3 +52,28 @@ ledger reprocess duplicates whose prior attempt died mid-flight
 (`processed_at` null) — the old early-ack would have orphaned the event.
 CLAUDE.md convention + execution-plan D2/D5/D8 prescriptions updated so the
 two-step pattern doesn't come back. Traces: R3/R4 / ADR-03, ADR-04.
+
+Evening: made never-cut #1 and #2 real ahead of schedule. RLS adversarial
+suite implemented (18 tests, fixtures Ken/Priya/service-role; pg direct
+connection for single-transaction actor + DST assertions; keys read from
+`supabase status` at runtime so nothing secret-shaped lands in git) and wired
+into CI as the `db` job with a guard that fails on a vacuous (todo/skip-only)
+run. Stripe webhook acceptance suite added (12 tests against the real served
+function, fixtures signed locally — no Stripe account): signature, ledger
+idempotency, died-mid-flight reprocess, unpaid-completion + async settlement,
+out-of-order, stale-event. The suites caught three real infrastructure gaps on
+day one: (a) current Supabase no longer auto-grants Data API table access —
+service_role had zero CRUD, so *every* PostgREST call would have failed local
+and cloud → 0009 makes the 0005 privilege model explicit (grants restrict
+verbs, RLS restricts rows); (b) `revoke execute from anon, authenticated` on
+the write RPCs was a no-op because EXECUTE goes to PUBLIC by default —
+verified with has_function_privilege, closed in 0009, asserted by a suite
+test; (c) no `[functions.*] verify_jwt = false` existed, so Stripe/Telegram/
+Airtable could never have reached the webhook fns (deploys need
+`--no-verify-jwt` to match). Hardened stripe-webhook per adversarial review:
+`payment_status` guard on completed (async methods complete unpaid) +
+`async_payment_succeeded/failed` handlers. An adversarial review pass also
+closed RLS-suite blind spots (businesses/techs, memberships/plans reads, RPC
+execute-denial). devDeps: pg (transaction-level tests), ws (Node 20 realtime
+shim). Did not do: OQ1–OQ3 (still open — now the first item of Day 3) and all
+of the Gate-1 spine (needs vendor accounts). Traces: R1/R3/R4/R8 / ADR-03.
