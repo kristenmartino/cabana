@@ -27,3 +27,11 @@ Verified @supabase/ssr patterns match current docs (async `cookies()`, getAll/se
 Did not: install global Supabase CLI (using `npx`), resolve OQ1–OQ3, wire edge fns.
 
 ## Day 2 —
+Opened the day by reconciling actual repo state against the build plan and
+writing `05-execution-plan.md`: phased design/build/test/deploy sequence from
+here to v1.0, honoring the gates and cut order in 04. Carried-over debt named
+explicitly: OQ1–OQ3 still open (Phase 0, timeboxed ≤2h, Railway default for
+OQ2 because chaos needs an n8n kill switch), Replit spike unlogged, golden CI
+job silently skipping without the `ANTHROPIC_API_KEY` repo secret. Flagged
+that `tests/rls/rls.test.ts` passes vacuously (15 `it.todo`) — it must not
+gate anything until implemented (D4, same PR as the CI db job).
