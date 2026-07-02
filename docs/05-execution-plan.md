@@ -266,12 +266,14 @@ instead of big-bang D10.
 
 ## Skeletons that must become real before they may gate anything
 
-1. `tests/rls/rls.test.ts` — 15 `it.todo`s, green-but-vacuous; real by end of
-   D4, same PR as the CI db job, with a zero-tests guard.
-2. `.github/workflows/ci.yml` db job — until it exists, RLS is untested on
-   every push despite being never-cut #1.
-3. Stripe replay/out-of-order tests — no file exists; Gate 2 is not passable
-   without them.
+1. ~~`tests/rls/rls.test.ts` — 15 `it.todo`s, green-but-vacuous~~ **Done D2**
+   (pulled forward from D4): 18 adversarial tests, three fixtures + pg direct
+   connection, in CI with a zero-tests guard.
+2. ~~`.github/workflows/ci.yml` db job~~ **Done D2**: start → reset →
+   test:rls (vacuous-suite guard) → test:webhooks.
+3. ~~Stripe replay/out-of-order tests~~ **Done D2**:
+   `tests/webhooks/stripe.test.ts`, 12 tests against the served function —
+   and the D6 fn wiring landed the same day, so the suite gates green.
 4. `scripts/chaos/run.ts` — the M3 evidence generator.
 5. Golden CI job — real but skips without the repo secret; M5 requires a pass.
 

@@ -74,8 +74,18 @@ Deno.serve(async (req) => {
   //    enforces legality; the outbox trigger (0004) emits the side effects.
   try {
     switch (event.type) {
-      case "checkout.session.completed": {
+      case "checkout.session.completed":
+      case "checkout.session.async_payment_succeeded": {
         const session = event.data.object as Stripe.Checkout.Session;
+
+        // A session can complete UNPAID (delayed-notification methods: ACH,
+        // bank transfer, OXXO…). Money truth is payment_status, not session
+        // completion — settlement arrives later as async_payment_succeeded/
+        // failed (R4, never-cut #2). Ack and wait; nothing to record yet.
+        if (session.payment_status !== "paid") {
+          console.log("stripe-webhook: session completed but unpaid, awaiting async result", session.id);
+          break;
+        }
 
         // Money truth first: the payment row flips to paid wherever the
         // booking is — late events still record the money accurately (R4).
@@ -115,7 +125,19 @@ Deno.serve(async (req) => {
           });
           if (trErr) throw trErr;
         }
-        console.log("checkout.session.completed", session.id);
+        console.log(event.type, session.id);
+        break;
+      }
+      case "checkout.session.async_payment_failed": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        // Async settlement failed: release the hold like an expiry —
+        // pending-only, so a paid row can never regress.
+        const { error: failErr } = await db
+          .from("payments")
+          .update({ status: "expired" })
+          .eq("stripe_checkout_session_id", session.id)
+          .eq("status", "pending");
+        if (failErr) throw failErr;
         break;
       }
       case "checkout.session.expired": {
