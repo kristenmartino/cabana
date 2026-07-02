@@ -174,9 +174,22 @@ Cloud endpoints (already provisioned — ADR-09):
    - Credential `Airtable PAT` — type **Header Auth**, `Authorization: Bearer <PAT>`.
    - In the **Airtable upsert** node, replace `__BASE_ID__` in the URL with the
      base id from step 1.
-   - On the Railway n8n service → *Variables*, set `TELEGRAM_BOT_TOKEN` (BotFather
-     token) and `OWNER_CHAT_ID` (owner's numeric chat id), then redeploy so n8n
-     picks them up. The Telegram ping reads these via `$env`.
+   - On the Railway n8n service → *Variables*, set **four** env vars, then let it
+     redeploy:
+     - `TELEGRAM_BOT_TOKEN` — BotFather token (Telegram ping URL reads it via `$env`).
+     - `OWNER_CHAT_ID` — owner's numeric chat id (Build actions reads it via `$env`).
+     - `N8N_ENCRYPTION_KEY` — a fixed random value (`openssl rand -hex 32`).
+       **Required**, and it must never change: n8n encrypts stored credentials with
+       it, and if unset it auto-generates one onto the container filesystem that
+       Railway wipes on every redeploy/restart — after which every saved credential
+       fails with *"Credentials could not be decrypted."* This is also what makes
+       the restart-survival and chaos tests possible (they restart n8n; pinning the
+       key is what lets credentials survive the restart). Set it BEFORE creating
+       credentials; if you set it after, delete and recreate them.
+     - `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` — this instance blocks `$env` inside
+       nodes by default, which fails Build actions (`access to env vars denied`).
+       Allowing it is acceptable for a single-tenant demo box; the alternative is
+       hardcoding the token/chat id into the workflow (kept out of the repo).
 
 4. **Activate the workflow.** Activation enables both the production webhook
    (`/webhook/cabana-outbox`, not `/webhook-test/...`) and the 60s schedule.
