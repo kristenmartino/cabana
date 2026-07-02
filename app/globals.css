@@ -1,0 +1,121 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Tailwind v4 scans these for class usage. */
+@source "../app";
+@source "../components";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+
+  /* Fonts are loaded by next/font (app/layout.tsx) and exposed as vars on <html>. */
+  --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-coral: var(--coral);
+  --color-coral-foreground: var(--coral-foreground);
+  --color-lagoon: var(--lagoon);
+  --color-lagoon-foreground: var(--lagoon-foreground);
+  --color-deepwater: var(--deepwater);
+  --color-sand: var(--sand);
+  --color-warn: var(--warn);
+  --color-success: var(--success);
+
+  --shadow-card: 0 1px 2px rgba(11, 59, 74, 0.04), 0 8px 24px -12px rgba(11, 59, 74, 0.12);
+  --shadow-lift: 0 2px 4px rgba(11, 59, 74, 0.06), 0 16px 40px -16px rgba(11, 59, 74, 0.18);
+}
+
+:root {
+  --radius: 1rem;
+
+  /* Sailfish palette */
+  --sand: oklch(0.972 0.014 85);              /* #F7F2E9 warm sand */
+  --lagoon: oklch(0.575 0.086 195);           /* #0E8C8B lagoon teal */
+  --lagoon-foreground: oklch(0.99 0.005 85);
+  --deepwater: oklch(0.32 0.055 220);         /* #0B3B4A deep water */
+  --coral: oklch(0.735 0.163 38);             /* #FF7A59 sunset coral */
+  --coral-foreground: oklch(0.99 0.005 85);
+
+  --background: var(--sand);
+  --foreground: var(--deepwater);
+  --card: oklch(1 0 0);
+  --card-foreground: var(--deepwater);
+  --popover: oklch(1 0 0);
+  --popover-foreground: var(--deepwater);
+  --primary: var(--lagoon);
+  --primary-foreground: var(--lagoon-foreground);
+  --secondary: oklch(0.94 0.02 195);
+  --secondary-foreground: var(--deepwater);
+  --muted: oklch(0.955 0.012 85);
+  --muted-foreground: oklch(0.48 0.03 220);
+  --accent: oklch(0.95 0.03 38);
+  --accent-foreground: var(--deepwater);
+  --destructive: oklch(0.58 0.22 27);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(0.9 0.015 85);
+  --input: oklch(0.9 0.015 85);
+  --ring: var(--lagoon);
+
+  --success: oklch(0.62 0.12 165);
+  --warn: oklch(0.78 0.14 75);
+}
+
+@layer base {
+  * { border-color: var(--color-border); }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    color: var(--color-deepwater);
+    letter-spacing: -0.02em;
+    font-weight: 600;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+}
+
+@utility wave-divider {
+  display: block;
+  width: 100%;
+  height: 28px;
+  background-repeat: repeat-x;
+  background-position: center;
+  background-size: 120px 28px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 28' fill='none'><path d='M0 14 C 20 2, 40 26, 60 14 S 100 2, 120 14' stroke='%230E8C8B' stroke-opacity='0.35' stroke-width='2' fill='none'/></svg>");
+}
