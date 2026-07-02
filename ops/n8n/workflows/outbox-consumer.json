@@ -53,7 +53,7 @@
         "method": "GET",
         "url": "https://uuviebpmiwzjyabucheo.supabase.co/rest/v1/outbox",
         "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "genericAuthType": "httpCustomAuth",
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
@@ -91,7 +91,7 @@
         40
       ],
       "credentials": {
-        "httpHeaderAuth": {
+        "httpCustomAuth": {
           "id": "REPLACE_WITH_SUPABASE_CRED_ID",
           "name": "Supabase service role"
         }
@@ -116,7 +116,7 @@
         "method": "GET",
         "url": "=https://uuviebpmiwzjyabucheo.supabase.co/rest/v1/bookings",
         "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "genericAuthType": "httpCustomAuth",
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
@@ -154,7 +154,7 @@
         40
       ],
       "credentials": {
-        "httpHeaderAuth": {
+        "httpCustomAuth": {
           "id": "REPLACE_WITH_SUPABASE_CRED_ID",
           "name": "Supabase service role"
         }
@@ -243,7 +243,7 @@
         "method": "PATCH",
         "url": "=https://uuviebpmiwzjyabucheo.supabase.co/rest/v1/outbox",
         "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "genericAuthType": "httpCustomAuth",
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
@@ -284,7 +284,7 @@
         -60
       ],
       "credentials": {
-        "httpHeaderAuth": {
+        "httpCustomAuth": {
           "id": "REPLACE_WITH_SUPABASE_CRED_ID",
           "name": "Supabase service role"
         }
@@ -309,7 +309,7 @@
         "method": "PATCH",
         "url": "=https://uuviebpmiwzjyabucheo.supabase.co/rest/v1/outbox",
         "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "genericAuthType": "httpCustomAuth",
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
@@ -342,7 +342,7 @@
         200
       ],
       "credentials": {
-        "httpHeaderAuth": {
+        "httpCustomAuth": {
           "id": "REPLACE_WITH_SUPABASE_CRED_ID",
           "name": "Supabase service role"
         }
@@ -387,7 +387,7 @@
         "method": "POST",
         "url": "=https://uuviebpmiwzjyabucheo.supabase.co/rest/v1/dead_letters",
         "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "genericAuthType": "httpCustomAuth",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -415,7 +415,7 @@
         120
       ],
       "credentials": {
-        "httpHeaderAuth": {
+        "httpCustomAuth": {
           "id": "REPLACE_WITH_SUPABASE_CRED_ID",
           "name": "Supabase service role"
         }

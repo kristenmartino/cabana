@@ -113,8 +113,11 @@ double-**create** — that idempotent upsert is the gate's actual assertion
 backoff + a DLQ + the instance error workflow, which closes the double-ping.
 
 **Two credentials (referenced by NAME, never inlined):**
-- `Supabase service role` — Header Auth, adds `apikey` + `Authorization: Bearer`.
-- `Airtable PAT` — Bearer.
+- `Supabase service role` — **Custom Auth** (the Supabase gateway needs `apikey`
+  *and* PostgREST needs `Authorization: Bearer`, so one Header Auth header isn't
+  enough). Credential JSON:
+  `{"headers":{"apikey":"<SERVICE_ROLE_KEY>","Authorization":"Bearer <SERVICE_ROLE_KEY>"}}`.
+- `Airtable PAT` — Header Auth, Bearer.
 
 **Two Railway env vars** (the Telegram send path reads them, not a credential):
 - `TELEGRAM_BOT_TOKEN` — the BotFather token, used in the sendMessage URL.
@@ -164,9 +167,11 @@ Cloud endpoints (already provisioned — ADR-09):
    `ops/n8n/workflows/outbox-consumer.json`.
 
 3. **Set up n8n auth: two credentials + two env vars.**
-   - Credential `Supabase service role` (Header Auth): `apikey: <SERVICE_ROLE_KEY>`
-     **and** `Authorization: Bearer <SERVICE_ROLE_KEY>`.
-   - Credential `Airtable PAT` (Bearer): the same PAT from step 1.
+   - Credential `Supabase service role` — type **Custom Auth**, JSON:
+     `{"headers":{"apikey":"<SERVICE_ROLE_KEY>","Authorization":"Bearer <SERVICE_ROLE_KEY>"}}`
+     (the 5 Supabase nodes use `httpCustomAuth`; one header isn't enough — the
+     gateway needs `apikey`, PostgREST needs `Authorization`).
+   - Credential `Airtable PAT` — type **Header Auth**, `Authorization: Bearer <PAT>`.
    - In the **Airtable upsert** node, replace `__BASE_ID__` in the URL with the
      base id from step 1.
    - On the Railway n8n service → *Variables*, set `TELEGRAM_BOT_TOKEN` (BotFather
