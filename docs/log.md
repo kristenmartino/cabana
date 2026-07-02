@@ -35,3 +35,20 @@ OQ2 because chaos needs an n8n kill switch), Replit spike unlogged, golden CI
 job silently skipping without the `ANTHROPIC_API_KEY` repo secret. Flagged
 that `tests/rls/rls.test.ts` passes vacuously (15 `it.todo`) — it must not
 gate anything until implemented (D4, same PR as the CI db job).
+
+Afternoon: found that actor attribution was broken for every status write via
+supabase-js — `set_actor()` (0006) is transaction-local by design, but
+PostgREST wraps each HTTP request in its own transaction, so
+`rpc('set_actor')` + `.update()` spans two transactions and the guard (0007)
+audited everything as `system`. Fix: 0008 (append-only) adds
+`transition_booking(booking_id, to_status, actor)` — set_config + UPDATE in
+one transaction, actor allowlist enforced, service-role only; `admin.ts` now
+exposes `transitionBooking()` and deprecates the two-step (`set_actor` stays
+for single-transaction SQL contexts like seed and the pg-based tests). Pulled
+D6 stripe-webhook wiring forward so the fix has a real consumer: `completed`
+→ payment `paid` + `awaiting_deposit→scheduled` via the RPC (audited
+`system:stripe`), `expired` → pending-only payment expiry; also made the
+ledger reprocess duplicates whose prior attempt died mid-flight
+(`processed_at` null) — the old early-ack would have orphaned the event.
+CLAUDE.md convention + execution-plan D2/D5/D8 prescriptions updated so the
+two-step pattern doesn't come back. Traces: R3/R4 / ADR-03, ADR-04.

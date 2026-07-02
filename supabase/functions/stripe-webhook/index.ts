@@ -3,8 +3,9 @@
 // Job description: verify authenticity -> record event (idempotent) ->
 // translate to a state change -> exit. No orchestration here (that's n8n's lane).
 //
-// STATUS: Day-6 skeleton. Security-critical patterns are in place; the
-// TODO markers are business wiring, not safety gaps. Verify SDK versions on Day 1.
+// STATUS: wired (D6 pulled forward with the 0008 actor-attribution fix).
+// Acceptance suite: tests/webhooks/stripe.test.ts — replay, out-of-order,
+// stale-event, and signature behavior; keep it green (never-cut #2).
 //
 // Local dev: `stripe listen --forward-to http://127.0.0.1:54321/functions/v1/stripe-webhook`
 
@@ -50,7 +51,23 @@ Deno.serve(async (req) => {
     return new Response("ledger error", { status: 500 });
   }
   if (!inserted) {
-    return new Response("already processed", { status: 200 });
+    // Duplicate delivery. Ack only if a previous attempt FINISHED — a ledger
+    // row with processed_at null means processing failed mid-flight, so fall
+    // through and reprocess (every handler below is idempotent). Concurrent
+    // duplicates may race past this check; the handlers tolerate that, and
+    // the loser's retry lands here again once processed_at is set.
+    const { data: prior, error: priorErr } = await db
+      .from("stripe_events")
+      .select("processed_at")
+      .eq("id", event.id)
+      .single();
+    if (priorErr) {
+      console.error("stripe-webhook: ledger lookup failed", priorErr);
+      return new Response("ledger error", { status: 500 });
+    }
+    if (prior.processed_at) {
+      return new Response("already processed", { status: 200 });
+    }
   }
 
   // 3. Translate event -> state change. The booking transition trigger (0002)
@@ -59,20 +76,60 @@ Deno.serve(async (req) => {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        await db.rpc("set_actor", { actor: "system:stripe" });
-        // TODO(D6): within one logical operation:
-        //   1. payments: status 'pending' -> 'paid' where
-        //      stripe_checkout_session_id = session.id
-        //   2. bookings: 'awaiting_deposit' -> 'scheduled' for the linked booking
-        // Late/out-of-order events: if the booking is already past
-        // awaiting_deposit, record payment as paid and stop — the transition
-        // guard makes stale transitions impossible by construction.
+
+        // Money truth first: the payment row flips to paid wherever the
+        // booking is — late events still record the money accurately (R4).
+        const { data: payment, error: payErr } = await db
+          .from("payments")
+          .update({ status: "paid" })
+          .eq("stripe_checkout_session_id", session.id)
+          .select("booking_id")
+          .maybeSingle();
+        if (payErr) throw payErr;
+        if (!payment) {
+          // No payment row for this session. The ledger keeps the payload for
+          // the nightly reconciliation; ack — a retry cannot fix this.
+          console.error("stripe-webhook: no payment for session", session.id);
+          break;
+        }
+
+        const { data: booking, error: bookingErr } = await db
+          .from("bookings")
+          .select("status")
+          .eq("id", payment.booking_id)
+          .single();
+        if (bookingErr) throw bookingErr;
+
+        // Advance only from awaiting_deposit; anything else is a late/stale
+        // event — payment recorded above, booking already moved on.
+        // transition_booking (0008) runs set_config + UPDATE in ONE
+        // transaction so the audit row says 'system:stripe'. Never
+        // rpc("set_actor") then .update(): each PostgREST request is its own
+        // transaction, so the actor dies with the first call and the audit
+        // would say 'system'.
+        if (booking.status === "awaiting_deposit") {
+          const { error: trErr } = await db.rpc("transition_booking", {
+            p_booking_id: payment.booking_id,
+            p_to_status: "scheduled",
+            p_actor: "system:stripe",
+          });
+          if (trErr) throw trErr;
+        }
         console.log("checkout.session.completed", session.id);
         break;
       }
       case "checkout.session.expired": {
-        // TODO(D6): mark payment 'expired'; booking expiry itself is owned by
-        // the n8n 24h hold job (single owner per rule — no double handling).
+        const session = event.data.object as Stripe.Checkout.Session;
+        // Only a pending payment can expire — a late 'expired' after
+        // 'completed' must not regress a paid row. Booking expiry itself is
+        // owned by the n8n 24h hold job (single owner per rule — no double
+        // handling).
+        const { error: expErr } = await db
+          .from("payments")
+          .update({ status: "expired" })
+          .eq("stripe_checkout_session_id", session.id)
+          .eq("status", "pending");
+        if (expErr) throw expErr;
         break;
       }
       default:

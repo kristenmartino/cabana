@@ -43,8 +43,13 @@ Never weaken, even "temporarily," even mid-debug:
 - **Writes:** browser writes nothing except `properties.access_notes` (column
   grant). Everything else goes through server actions / edge functions using
   the service role via `lib/supabase/admin.ts`.
-- **Every status write** is preceded by `setActor(db, "<actor>")` so the
-  transition audit (`booking_transitions`) knows who acted via which channel.
+- **Every status write** goes through `transitionBooking(db, id, status, actor)`
+  (`lib/supabase/admin.ts` → `transition_booking()` RPC, 0008) so the actor and
+  the write share one transaction and the audit (`booking_transitions`) records
+  who acted via which channel. `setActor()` is deprecated over the API —
+  PostgREST runs each request in its own transaction, so the setting dies
+  before a separate `.update()`. Raw SQL contexts (seed, psql, pg test
+  clients) may still `select set_actor(...)` inside an explicit transaction.
   Actors: `member | owner:telegram | office:airtable | system:stripe | system:expiry | system`.
 - **Status machine:** the legal graph lives in `0002_bookings.sql`. New
   transitions = migration + PRD R3 update, never a trigger bypass.

@@ -64,7 +64,7 @@ nothing downstream waits on a vendor.
    M1) — mitigate via the D7 health-check keep-warm or budget Pro in README
    cost notes.
 4. Provision in parallel: Supabase cloud project (`supabase link` + `db push`
-   0001–0007 + seed, deploy the 3 skeleton fns), Railway/n8n, Airtable base
+   0001–0008 + seed, deploy the 3 skeleton fns), Railway/n8n, Airtable base
    skeleton, BotFather bot, Stripe test account, Resend. Record secrets per
    `.env.example`.
 5. **Add `ANTHROPIC_API_KEY` to GitHub Actions secrets** (5 min) — golden job
@@ -72,7 +72,7 @@ nothing downstream waits on a vendor.
 
 **Exit:** decisions logged as ADR amendment in `03-decisions.md` + dated
 `log.md` Day 2 entry (hard stop: end of D2 morning — the fallback *is* the
-decision if the timebox blows). `supabase migration list` shows 0007 on cloud;
+decision if the timebox blows). `supabase migration list` shows 0008 on cloud;
 next CI push shows golden executing.
 
 ## Phase 1 — Gate 1: walking skeleton spine (Day 2) [BUILD + DEPLOY]
@@ -87,8 +87,10 @@ transition recorded, with hardcoded/seed data.
    and commit (instance never drifts ahead of repo).
 2. **Minimal Approve slice** in `supabase/functions/telegram-webhook/index.ts:70`
    (planned partial pull-forward of TODO(D8)): callback →
-   `set_actor('owner:telegram')` → `scheduled→confirmed` →
-   `answerCallbackQuery`; handle P0001 on duplicate tap as "already handled".
+   `transition_booking(id, 'confirmed', 'owner:telegram')` (0008 — one
+   transaction; a bare `set_actor` rpc loses the actor across PostgREST
+   requests) → `answerCallbackQuery`; handle P0001 on duplicate tap as
+   "already handled".
    Full command router stays D8.
 3. Telegram `setWebhook` to the deployed edge fn (stable HTTPS — avoids
    dev-tunnel friction); seed `telegram_chats` with the real owner chat id.
@@ -149,7 +151,8 @@ double-book/double-charge.
   complete — the action must **not** add a competing try/catch around its
   structural fallback) → confidence-gated routing (≥0.8 → `awaiting_deposit`;
   else `needs_review`) → `ai_events` row → drafted ack or holding reply;
-  `setActor` before every status write. **Fallback drill:** remove the API key
+  `transitionBooking` for every status write (0008 — never the deprecated
+  `setActor` + update two-step). **Fallback drill:** remove the API key
   locally, verify the member flow still completes with the holding reply
   (never-cut #4).
 - **D6 Stripe (R4):** Checkout session in the server action ($75 test mode);
@@ -194,8 +197,9 @@ write-back, R7 full bot. This phase holds cut candidates C1–C4.
 - **D8 Airtable (R6):** linked records, five views, Interface (or views-only
   per OQ1 fallback), write-back automation → wire TODO(D8) in
   `supabase/functions/airtable-writeback/index.ts:55`
-  (`set_actor('office:airtable')`, `visit_notes` / `mark_completed` with P0001
-  reported back, `sync_log` row; whitelist does not grow — ADR-01). Marie
+  (`transition_booking(id, 'completed', 'office:airtable')` for
+  `mark_completed`, plain update for `visit_notes`, P0001 reported back,
+  `sync_log` row; whitelist does not grow — ADR-01). Marie
   one-page guide in `docs/`.
 - **D8 Telegram (R7):** command router TODO(D8) in
   `supabase/functions/telegram-webhook/index.ts:76-80` (`/today`, `/week`,
