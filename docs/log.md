@@ -130,3 +130,35 @@ no-ops with no `app_config` URL), typecheck + RLS (18) + webhooks (12) all green
 Remaining owner-side for Gate 1: import the workflow, set 2 creds + 2 Railway env
 vars, replace `__BASE_ID__`, run `airtable-setup.sh`, then `spine-demo`. Traces:
 R5/R7 / ADR-02, ADR-07.
+
+## Day 2 (cont.) — GATE 1 CLOSED (spine + durability proven live)
+The walking skeleton is proven end-to-end on live cloud infra. Functional: a
+booking write → outbox → n8n (nudge + sweep) → one Airtable row upserted +
+Telegram ping with a working Approve button → owner tap → `transition_booking`
+records `scheduled→confirmed` by `owner:telegram`. Durability (the real Gate-1
+assertion): n8n stopped in Railway, 3 bookings queued in the outbox, n8n
+restarted; the 60s sweep drained all 3 with NO nudge — exactly one Airtable row
+each (idempotent upsert), zero lost, zero duplicated, zero dead-lettered.
+
+Bringing n8n up cost a run of real setup gotchas, all now in the runbook:
+Airtable base id was copied one char short (17→16); n8n import lives on the
+canvas (paste JSON) not the list; Supabase PostgREST needs BOTH `apikey` and
+`Authorization` so the 5 Supabase nodes use n8n Custom Auth, not Header Auth;
+and two hard ones tied to Railway's ephemeral filesystem — `N8N_ENCRYPTION_KEY`
+MUST be pinned (unset, n8n auto-generates it onto disk which Railway wipes on
+every redeploy → "credentials could not be decrypted"; pinning it is also what
+lets credentials survive the restart the durability test depends on), and
+`N8N_BLOCK_ENV_ACCESS_IN_NODE=false` (this instance blocks `$env` in nodes,
+which the Build-actions `$env.OWNER_CHAT_ID` needs). Also fixed the enrich
+parsing so `member_id`/`request_text` populate (n8n split PostgREST's single-row
+array into a bare object the code didn't expect).
+
+Best part: the restart test caught a REAL intermittent Railway→Telegram
+`connect ETIMEDOUT` (Telegram itself reachable elsewhere) and the outbox handled
+it exactly as designed — Airtable committed once, the Telegram leg failed and
+retried per-row until every ping delivered (A/B on attempt 2, C on attempt 3),
+never lost, never duplicated, never dead-lettered. A better durability proof
+than a clean pass. If Railway↔Telegram proves persistently flaky, the D7
+error-workflow (dead-letter after 5 + alert) is the backstop — silence never
+means loss. Test data cleaned up; seed world + Airtable pristine. Traces:
+R5/R7 / M2, M3 (partial) / ADR-02.
