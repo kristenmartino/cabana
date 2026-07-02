@@ -1,26 +1,33 @@
 "use client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useRef, useState, useTransition } from "react";
 import { AppShell } from "@/components/sailfish/AppShell";
+import { submitRequest } from "./actions";
 
-const MOCK = {
-  responseTime: "usually within a few minutes",
-  supportName: "Dana",
-};
+const RESPONSE_TIME = "usually within a few minutes";
 
 export default function NewRequest() {
-  const router = useRouter();
   const [text, setText] = useState("");
   const [photo, setPhoto] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const onFile = (f: File | undefined) => {
     if (!f) return;
-    const url = URL.createObjectURL(f);
-    setPhoto(url);
+    setPhoto(URL.createObjectURL(f));
   };
+
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!text.trim() || pending) return;
+    setError(null);
+    startTransition(async () => {
+      // On success this redirects to the new request's status page.
+      const res = await submitRequest(text);
+      if (res && !res.ok) setError(res.message);
+    });
+  }
 
   return (
     <AppShell>
@@ -43,15 +50,7 @@ export default function NewRequest() {
         </p>
       </div>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!text.trim() || submitting) return;
-          setSubmitting(true);
-          setTimeout(() => router.push("/request/status"), 400);
-        }}
-        className="mt-6"
-      >
+      <form onSubmit={onSubmit} className="mt-6">
         <label htmlFor="story" className="sr-only">Describe the issue</label>
         <div className="rounded-3xl bg-card p-2 shadow-card focus-within:ring-2 focus-within:ring-lagoon">
           <textarea
@@ -65,7 +64,7 @@ export default function NewRequest() {
           />
         </div>
 
-        {/* Photo dropzone */}
+        {/* Photo dropzone (attach UI; storage lands with the D5 intake / P1) */}
         <div className="mt-4">
           <p className="mb-2 text-sm font-medium text-deepwater">
             Add a photo <span className="font-normal text-muted-foreground">(optional)</span>
@@ -106,13 +105,15 @@ export default function NewRequest() {
           />
         </div>
 
+        {error && <p className="mt-4 text-center text-sm text-destructive">{error}</p>}
+
         <button
           type="submit"
-          disabled={!text.trim() || submitting}
+          disabled={!text.trim() || pending}
           className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-coral px-4 py-4 text-base font-semibold text-coral-foreground shadow-card transition hover:brightness-95 active:brightness-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {submitting ? "Sending…" : "Send to Sailfish"}
-          {!submitting && (
+          {pending ? "Sending…" : "Send to Sailfish"}
+          {!pending && (
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
               <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
@@ -120,7 +121,7 @@ export default function NewRequest() {
         </button>
 
         <p className="mt-4 text-center text-sm text-muted-foreground">
-          We&apos;ll read this right away and text you back — {MOCK.responseTime}.
+          We&apos;ll read this right away and text you back — {RESPONSE_TIME}.
         </p>
       </form>
     </AppShell>

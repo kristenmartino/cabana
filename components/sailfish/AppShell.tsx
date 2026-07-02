@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { SailfishLogo } from "./Logo";
+import { signOut } from "@/app/actions";
 
 export function AppShell({
   children,
@@ -22,12 +23,14 @@ export function AppShell({
             <SailfishLogo />
           </Link>
           {showNav && !isAuth && (
-            <Link
-              href="/sign-in"
-              className="text-xs font-medium text-muted-foreground hover:text-deepwater"
-            >
-              Sign out
-            </Link>
+            <form action={signOut}>
+              <button
+                type="submit"
+                className="text-xs font-medium text-muted-foreground hover:text-deepwater"
+              >
+                Sign out
+              </button>
+            </form>
           )}
         </div>
       </header>
