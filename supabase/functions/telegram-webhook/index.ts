@@ -4,7 +4,8 @@
 // comes before everything else.
 //
 // STATUS: Day-1/Day-8 skeleton. Auth patterns (secret token + allowlist) are
-// implemented; command routing is TODO. Register the webhook with:
+// implemented; command routing is TODO. The Approve/Needs-info callback slice
+// (Gate-1 spine) is wired below. Register the webhook with:
 //   https://api.telegram.org/bot<TOKEN>/setWebhook
 //     ?url=<function-url>&secret_token=<TELEGRAM_WEBHOOK_SECRET>
 
@@ -60,16 +61,92 @@ Deno.serve(async (req) => {
     return new Response("ok", { status: 200 }); // 200 so Telegram doesn't retry abuse
   }
 
-  // 3. Route. Always answer callback queries (Telegram redelivers otherwise);
-  //    idempotency for Approve comes free from the transition guard — a second
-  //    tap attempts an illegal transition and is reported as "already handled."
+  // 3. Route. Always answer callback queries (Telegram redelivers otherwise).
+  //    Approve idempotency is layered: on success we clear the inline keyboard
+  //    (editMessageReplyMarkup) so the message can't be tapped again. A rare
+  //    double-tap race that beats the keyboard-clear is still safe — the second
+  //    call is scheduled->confirmed while already 'confirmed', which the guard
+  //    (0007) treats as a same-status no-op (no P0001, no duplicate audit/outbox
+  //    row) and re-answers "Approved". The P0001 "already handled" path below
+  //    fires for a genuinely STALE tap: the booking has since left 'scheduled'
+  //    to a terminal state (cancelled/completed), making scheduled->confirmed
+  //    illegal.
   if (update.callback_query) {
     const cb = update.callback_query;
-    await tg("answerCallbackQuery", { callback_query_id: cb.id });
     // callback_data convention: "approve:<booking_id>" | "needsinfo:<booking_id>"
-    // TODO(D8): apply transition via rpc('transition_booking', { p_actor:
-    // 'owner:telegram' }) (0008 — one transaction); on P0001 (illegal
-    // transition) reply "already handled by <actor> at <time>".
+    const data: string = cb.data ?? "";
+    const sep = data.indexOf(":");
+    const action = sep === -1 ? data : data.slice(0, sep);
+    const bookingId = sep === -1 ? "" : data.slice(sep + 1);
+
+    if (action === "approve" && bookingId) {
+      // Apply the transition in ONE transaction via transition_booking (0008),
+      // so the audit (booking_transitions) records actor 'owner:telegram' — not
+      // 'system'. Never rpc('set_actor') then .update(): PostgREST runs each
+      // request in its own transaction and the actor would be lost.
+      const { error } = await db.rpc("transition_booking", {
+        p_booking_id: bookingId,
+        p_to_status: "confirmed",
+        p_actor: "owner:telegram",
+      });
+
+      if (!error) {
+        await tg("answerCallbackQuery", {
+          callback_query_id: cb.id,
+          text: "✅ Approved",
+        });
+        // Clear the inline keyboard so the same message can't be tapped again.
+        if (cb.message) {
+          await tg("editMessageReplyMarkup", {
+            chat_id: cb.message.chat.id,
+            message_id: cb.message.message_id,
+            reply_markup: { inline_keyboard: [] },
+          });
+        }
+      } else if (error.code === "P0001") {
+        // Illegal transition: the booking left 'scheduled' for a terminal state
+        // (cancelled/completed) before this tap, so scheduled->confirmed is now
+        // illegal and the guard (0007) raised P0001. Report it as already
+        // handled rather than an error. (A same-status re-tap does NOT reach
+        // here — the guard no-ops it and it lands in the success branch above.)
+        // Distinguish P0001 from infrastructure errors below.
+        console.log(
+          `telegram-webhook: approve ${bookingId} already handled (P0001)`,
+        );
+        await tg("answerCallbackQuery", {
+          callback_query_id: cb.id,
+          text: "Already handled",
+        });
+      } else {
+        // Anything else (network, permission, missing booking P0002…) is a real
+        // failure: tell the owner it didn't go through and leave the buttons so
+        // they can retry. Do NOT swallow it as "handled".
+        console.error(
+          `telegram-webhook: approve ${bookingId} failed`,
+          error,
+        );
+        await tg("answerCallbackQuery", {
+          callback_query_id: cb.id,
+          text: "Couldn't approve — try again",
+          show_alert: true,
+        });
+      }
+      return new Response("ok", { status: 200 });
+    }
+
+    if (action === "needsinfo" && bookingId) {
+      // v0: acknowledge only. The full needs-info flow (state change + member
+      // outreach) lands Day 8; for the spine we just confirm the tap.
+      await tg("answerCallbackQuery", {
+        callback_query_id: cb.id,
+        text: "Noted — needs info (Day 8)",
+      });
+      return new Response("ok", { status: 200 });
+    }
+
+    // Unknown callback payload — still answer so Telegram stops redelivering.
+    console.warn(`telegram-webhook: unrecognized callback_data ${data}`);
+    await tg("answerCallbackQuery", { callback_query_id: cb.id });
     return new Response("ok", { status: 200 });
   }
 

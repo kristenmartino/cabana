@@ -1,0 +1,563 @@
+{
+  "name": "outbox-consumer",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cabana-outbox",
+        "responseMode": "onReceived",
+        "responseCode": 200,
+        "responseData": "noData",
+        "options": {}
+      },
+      "id": "11111111-1111-4111-8111-111111111101",
+      "name": "Webhook nudge",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -640,
+        -80
+      ],
+      "webhookId": "cabana-outbox"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "seconds",
+              "secondsInterval": 60
+            }
+          ]
+        }
+      },
+      "id": "11111111-1111-4111-8111-111111111102",
+      "name": "Every 60s sweep",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -640,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://uuviebpmiwzjyabucheo.supabase.co/rest/v1/outbox",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "processed_at",
+              "value": "is.null"
+            },
+            {
+              "name": "order",
+              "value": "id.asc"
+            },
+            {
+              "name": "limit",
+              "value": "50"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "11111111-1111-4111-8111-111111111103",
+      "name": "Fetch unprocessed outbox",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -380,
+        40
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_SUPABASE_CRED_ID",
+          "name": "Supabase service role"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Normalize the PostgREST GET response into exactly one n8n item per outbox\n// row, regardless of how the HTTP Request node surfaced the JSON array\n// (auto-split into items, a single item wrapping the array, or a `data` key).\n// PostgREST returns a bare JSON array of outbox rows.\nconst out = [];\nfor (const item of $input.all()) {\n  const j = item.json;\n  let rows;\n  if (Array.isArray(j)) {\n    rows = j;\n  } else if (Array.isArray(j.data)) {\n    rows = j.data;\n  } else if (j && j.id !== undefined && j.dedupe_key !== undefined) {\n    rows = [j];\n  } else {\n    rows = [];\n  }\n  for (const r of rows) out.push({ json: r });\n}\nreturn out;"
+      },
+      "id": "11111111-1111-4111-8111-111111111104",
+      "name": "Split outbox rows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -140,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://uuviebpmiwzjyabucheo.supabase.co/rest/v1/bookings",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "=eq.{{ $json.payload.booking_id }}"
+            },
+            {
+              "name": "select",
+              "value": "id,member_id,kind,status,request_text,window"
+            },
+            {
+              "name": "limit",
+              "value": "1"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "11111111-1111-4111-8111-111111111105",
+      "name": "Enrich booking row",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        100,
+        40
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_SUPABASE_CRED_ID",
+          "name": "Supabase service role"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Runs once per outbox row. `$json` is the enriched-booking HTTP response\n// (an array from PostgREST). The outbox row itself is available upstream via\n// the \"Split outbox rows\" node.\nconst outbox = $('Split outbox rows').item.json;\nconst payload = outbox.payload || {};\nconst rows = Array.isArray($json.data) ? $json.data : (Array.isArray($json) ? $json : []);\nconst booking = rows[0] || {};\n\n// Resulting status: payload.status for 'booking.created', payload.to for\n// 'booking.status_changed'. Fall back to the freshly fetched row.\nconst resultingStatus = payload.status || payload.to || booking.status || null;\n\n// member_id: present on status_changed payloads; otherwise from the fetched row.\nconst memberId = payload.member_id || booking.member_id || null;\nconst kind = payload.kind || booking.kind || null;\nconst requestText = booking.request_text || null;\n\n// window is a Postgres tstzrange rendered by PostgREST as e.g.\n// [\"2026-07-10T14:00:00+00:00\",\"2026-07-10T16:00:00+00:00\") — take the lower bound.\nfunction lowerBound(win) {\n  if (!win) return null;\n  const m = String(win).match(/[\\[(]\\s*\"?([^\",\\])]+)\"?/);\n  return m ? m[1] : null;\n}\nconst windowStart = lowerBound(booking.window);\n\nconst showApprove = resultingStatus === 'scheduled';\nconst bid = payload.booking_id;\n\n// --- Airtable upsert record (idempotent on booking_id) ---\nconst airtableFields = {\n  booking_id: bid,\n  status: resultingStatus,\n  kind: kind,\n  member_id: memberId,\n  request_text: requestText,\n  last_synced: new Date().toISOString()\n};\nif (windowStart) airtableFields.window_start = windowStart;\n\n// --- Telegram message text ---\nconst lines = [];\nif (outbox.topic === 'booking.created') {\n  lines.push('🟦 New booking');\n} else {\n  lines.push('🔄 Booking status: ' + (payload.from || '?') + ' → ' + (payload.to || '?'));\n}\nlines.push('kind: ' + (kind || 'n/a'));\nlines.push('status: ' + (resultingStatus || 'n/a'));\nif (requestText) lines.push('“' + String(requestText).slice(0, 240) + '”');\nlines.push('id: ' + bid);\nconst telegramText = lines.join('\\n');\n\n// --- Telegram send body (chat_id + optional inline Approve keyboard) ---\nconst telegramBody = {\n  chat_id: Number($env.OWNER_CHAT_ID),\n  text: telegramText,\n  disable_web_page_preview: true\n};\nif (showApprove) {\n  telegramBody.reply_markup = {\n    inline_keyboard: [[\n      { text: '✅ Approve', callback_data: 'approve:' + bid },\n      { text: '↩︎ Needs info', callback_data: 'needsinfo:' + bid }\n    ]]\n  };\n}\n\nreturn {\n  json: {\n    outbox_id: outbox.id,\n    dedupe_key: outbox.dedupe_key,\n    topic: outbox.topic,\n    attempts: outbox.attempts || 0,\n    booking_id: bid,\n    resulting_status: resultingStatus,\n    show_approve: showApprove,\n    airtable_records: [{ fields: airtableFields }],\n    telegram_body: telegramBody\n  }\n};"
+      },
+      "id": "11111111-1111-4111-8111-111111111106",
+      "name": "Build actions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        340,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.airtable.com/v0/__BASE_ID__/Bookings",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ performUpsert: { fieldsToMergeOn: ['booking_id'] }, records: $json.airtable_records }) }}",
+        "options": {}
+      },
+      "id": "11111111-1111-4111-8111-111111111107",
+      "name": "Airtable upsert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        580,
+        -60
+      ],
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_AIRTABLE_CRED_ID",
+          "name": "Airtable PAT"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Build actions').item.json.telegram_body) }}",
+        "options": {}
+      },
+      "id": "11111111-1111-4111-8111-111111111108",
+      "name": "Telegram ping",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        820,
+        -60
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://uuviebpmiwzjyabucheo.supabase.co/rest/v1/outbox",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "=eq.{{ $('Build actions').item.json.outbox_id }}"
+            },
+            {
+              "name": "processed_at",
+              "value": "is.null"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ processed_at: new Date().toISOString() }) }}",
+        "options": {}
+      },
+      "id": "11111111-1111-4111-8111-111111111109",
+      "name": "Mark processed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1060,
+        -60
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_SUPABASE_CRED_ID",
+          "name": "Supabase service role"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// One ACT step (Airtable or Telegram) failed. Compute the next attempt count\n// and a compact error string; decide whether this row should be dead-lettered.\n// `$json` here still carries the Build-actions fields plus n8n's error object.\nconst src = $('Build actions').item.json;\nconst outboxId = src.outbox_id;\nconst attempts = (src.attempts || 0) + 1;\nconst err = $json.error || {};\nconst message =\n  (err.message ? String(err.message) : '') ||\n  (err.description ? String(err.description) : '') ||\n  'ACT step failed';\nreturn {\n  json: {\n    outbox_id: outboxId,\n    attempts: attempts,\n    last_error: message.slice(0, 500),\n    dead_letter: attempts >= 5,\n    payload_topic: src.topic,\n    booking_id: src.booking_id\n  }\n};"
+      },
+      "id": "11111111-1111-4111-8111-111111111110",
+      "name": "Prepare failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        820,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://uuviebpmiwzjyabucheo.supabase.co/rest/v1/outbox",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "=eq.{{ $json.outbox_id }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ attempts: $json.attempts, last_error: $json.last_error }) }}",
+        "options": {}
+      },
+      "id": "11111111-1111-4111-8111-111111111111",
+      "name": "Record attempt + error",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1060,
+        200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_SUPABASE_CRED_ID",
+          "name": "Supabase service role"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "cond-deadletter-1",
+              "leftValue": "={{ $('Prepare failure').item.json.dead_letter }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "11111111-1111-4111-8111-111111111112",
+      "name": "Attempts exhausted?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1300,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://uuviebpmiwzjyabucheo.supabase.co/rest/v1/dead_letters",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ outbox_id: $('Prepare failure').item.json.outbox_id, workflow: 'outbox-consumer', error: $('Prepare failure').item.json.last_error, payload: { booking_id: $('Prepare failure').item.json.booking_id, topic: $('Prepare failure').item.json.payload_topic } }) }}",
+        "options": {}
+      },
+      "id": "11111111-1111-4111-8111-111111111113",
+      "name": "Dead-letter",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        120
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_SUPABASE_CRED_ID",
+          "name": "Supabase service role"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook nudge": {
+      "main": [
+        [
+          {
+            "node": "Fetch unprocessed outbox",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every 60s sweep": {
+      "main": [
+        [
+          {
+            "node": "Fetch unprocessed outbox",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch unprocessed outbox": {
+      "main": [
+        [
+          {
+            "node": "Split outbox rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split outbox rows": {
+      "main": [
+        [
+          {
+            "node": "Enrich booking row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enrich booking row": {
+      "main": [
+        [
+          {
+            "node": "Build actions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build actions": {
+      "main": [
+        [
+          {
+            "node": "Airtable upsert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Airtable upsert": {
+      "main": [
+        [
+          {
+            "node": "Telegram ping",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram ping": {
+      "main": [
+        [
+          {
+            "node": "Mark processed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare failure": {
+      "main": [
+        [
+          {
+            "node": "Record attempt + error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record attempt + error": {
+      "main": [
+        [
+          {
+            "node": "Attempts exhausted?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attempts exhausted?": {
+      "main": [
+        [
+          {
+            "node": "Dead-letter",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  }
+}

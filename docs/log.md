@@ -91,3 +91,42 @@ functions deployed with gateway JWT verification off (they authenticate
 callers themselves — ADR-03/07/01). Awaiting owner-side account steps:
 BotFather token, Railway n8n, Airtable base, Stripe test keys, `gh secret
 set ANTHROPIC_API_KEY`. Traces: R5/R6 shape unblocked / ADR-09.
+
+## Day 2 (cont.) — Telegram live + Gate-1 spine authored
+Owner-side accounts landed: GitHub `ANTHROPIC_API_KEY` secret (golden job now
+gates instead of skipping), Supabase CLI linked, BotFather bot `@cabanaboy_bot`
+with secrets set, Railway n8n up, Airtable base created. Telegram inbound path
+proven live end-to-end on cloud: secret-token auth → allowlist → edge function
+(the owner's chat_id, read via @userinfobot, is seeded into `telegram_chats`).
+Two setup papercuts worth remembering: on zsh, `read -rs -p` isn't a prompt and
+`read` inside a pasted block swallows the next line as input — so the bot token
+landed empty and every Telegram call 404'd until the token was assigned inline;
+and the webhook secret set via `$(openssl rand -hex 24)` was unrecoverable, so
+it had to be regenerated to a known value for `setWebhook`.
+
+Gate-1 spine authored via a fan-out+adversarial-verify workflow (contract pinned
+up front: outbox payload shape, dedupe keys, `callback_data`, Airtable fields).
+Artifacts: `ops/n8n/workflows/outbox-consumer.json` (webhook nudge + 60s sweep →
+fetch unprocessed → per-row Airtable idempotent upsert + conditional Telegram
+Approve keyboard → mark processed; attempts/dead-letter on failure), the
+telegram-webhook Approve slice (redeployed to cloud, v6), `scripts/spine-demo.ts`,
+`scripts/airtable-setup.sh`, and the Gate-1 runbook in `ops/n8n/README.md`.
+The verify pass caught three n8n bugs of one class — nodes reading bare `$json`
+immediately downstream of an HTTP Request node (whose output replaces the item
+with the API response), which silently undefined-ed the Telegram body, the
+mark-processed id, AND the whole dead-letter branch — fixed by referencing the
+upstream Code nodes by name; plus a spine-demo window that collided with the
+`no_tech_overlap` exclusion constraint on repeat runs (fixed: per-run window +
+retry-on-23P01) and a cleanup FK-order bug (dead_letters before outbox).
+Nudge wiring hit a real platform limit: `0010` read the URL from a GUC, but
+Supabase forbids the project role from persisting a custom GUC (`alter
+database/role … set app.* → 42501`), so `0011` (append-only) switched to a
+service-role-only `app_config` table read by a SECURITY DEFINER trigger; URL
+configured on cloud and the 8 seed outbox rows marked processed for a clean
+first demo. Corrected the overstated double-tap comment in code + README (a
+same-status re-tap is a guard no-op, not P0001; P0001 is only for genuinely
+stale taps). Local `db reset` applies 0010+0011 cleanly (pg_net present; trigger
+no-ops with no `app_config` URL), typecheck + RLS (18) + webhooks (12) all green.
+Remaining owner-side for Gate 1: import the workflow, set 2 creds + 2 Railway env
+vars, replace `__BASE_ID__`, run `airtable-setup.sh`, then `spine-demo`. Traces:
+R5/R7 / ADR-02, ADR-07.
