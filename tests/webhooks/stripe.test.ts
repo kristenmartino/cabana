@@ -1,8 +1,8 @@
 // tests/webhooks/stripe.test.ts
 // Gate-2 acceptance suite for the stripe-webhook edge function (R4/ADR-03):
-// replay, out-of-order, and signature behavior asserted against the REAL
-// function served by the local stack — fixture events signed with the same
-// secret the function verifies, no Stripe account required.
+// replay, out-of-order, async-settlement, and signature behavior asserted
+// against the REAL function served by the local stack — fixture events signed
+// with the same secret the function verifies, no Stripe account required.
 //
 // Run: supabase start && npm run db:reset && npm run test:webhooks
 // Needs supabase/functions/.env (gitignored) providing:
@@ -11,15 +11,14 @@
 // and [functions.stripe-webhook] verify_jwt = false in supabase/config.toml
 // (Stripe cannot send Supabase JWTs; authenticity is the signature).
 //
-// STATUS: authored red->green ahead of the TODO(D6) wiring (execution-plan
-// Phase 3). The "signature + ledger" group must be green NOW and stay green;
-// the "state wiring" group goes green when the D6 handlers land. Gate 2 is
-// not passable until this whole file is green.
+// STATUS: green — authored red->green on Day 2 and satisfied the same day by
+// the pulled-forward D6 wiring. This file is never-cut #2's regression gate;
+// it runs in CI's db job and must stay green.
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
-import { serviceClient, stackEnv } from "../helpers/local-stack";
+import { awaitApiReady, serviceClient, stackEnv } from "../helpers/local-stack";
 
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET ?? "whsec_cabana_local_test";
 const RUN = Date.now();
@@ -34,21 +33,42 @@ const KEN = {
 // Run-unique fixtures so reruns never collide with the idempotency ledger.
 const CS_MAIN = `cs_test_${RUN}_main`;
 const CS_STALE = `cs_test_${RUN}_stale`;
+const CS_ASYNC = `cs_test_${RUN}_async`;
+const CS_MIDFLIGHT = `cs_test_${RUN}_midflight`;
 const EVT_COMPLETED = `evt_test_${RUN}_completed`;
 const EVT_EXPIRED = `evt_test_${RUN}_expired`;
 const EVT_STALE = `evt_test_${RUN}_stale`;
 const EVT_UNHANDLED = `evt_test_${RUN}_unhandled`;
+const EVT_ASYNC_UNPAID = `evt_test_${RUN}_async_unpaid`;
+const EVT_ASYNC_OK = `evt_test_${RUN}_async_ok`;
+const EVT_MIDFLIGHT = `evt_test_${RUN}_midflight`;
+const ALL_EVENT_IDS = [
+  EVT_COMPLETED,
+  EVT_EXPIRED,
+  EVT_STALE,
+  EVT_UNHANDLED,
+  EVT_ASYNC_UNPAID,
+  EVT_ASYNC_OK,
+  EVT_MIDFLIGHT,
+];
 
 const stripe = new Stripe("sk_test_dummy_key_for_signing_only");
 
-function checkoutEvent(id: string, type: string, sessionId: string): string {
+function checkoutEvent(
+  id: string,
+  type: string,
+  sessionId: string,
+  paymentStatus = "paid",
+): string {
   return JSON.stringify({
     id,
     object: "event",
     api_version: "2024-06-20",
     created: Math.floor(Date.now() / 1000),
     type,
-    data: { object: { id: sessionId, object: "checkout.session", payment_status: "paid" } },
+    data: {
+      object: { id: sessionId, object: "checkout.session", payment_status: paymentStatus },
+    },
     livemode: false,
     pending_webhooks: 1,
     request: { id: null, idempotency_key: null },
@@ -72,18 +92,67 @@ function sign(payload: string): string {
 let S: SupabaseClient;
 let mainBookingId: string;
 let staleBookingId: string;
+let asyncBookingId: string;
+let midflightBookingId: string;
+const createdBookingIds: string[] = [];
 const createdPaymentIds: string[] = [];
 
+// Booking + linked payment, the shape the D5/D6 server action will create.
+async function fixturePair(
+  bookingStatus: string,
+  paymentStatus: string,
+  sessionId: string,
+  label: string,
+): Promise<string> {
+  const { data: b, error: bErr } = await S.from("bookings")
+    .insert({
+      business_id: BUSINESS,
+      property_id: KEN.propertyId,
+      member_id: KEN.memberId,
+      kind: "repair",
+      status: bookingStatus,
+      deposit_required: true,
+      request_text: `webhook-test ${label} [run ${RUN}]`,
+    })
+    .select("id")
+    .single();
+  if (bErr) throw new Error(`fixture booking insert failed: ${bErr.message}`);
+  createdBookingIds.push(b!.id);
+
+  const { data: p, error: pErr } = await S.from("payments")
+    .insert({
+      booking_id: b!.id,
+      amount_cents: 7500,
+      status: paymentStatus,
+      stripe_checkout_session_id: sessionId,
+    })
+    .select("id")
+    .single();
+  if (pErr) throw new Error(`fixture payment insert failed: ${pErr.message}`);
+  createdPaymentIds.push(p!.id);
+  return b!.id;
+}
+
 beforeAll(async () => {
+  await awaitApiReady();
   // Reachability preflight with actionable failures — this suite must never
-  // "pass" by silently not talking to the function.
-  let probe: Response;
-  try {
-    probe = await post(checkoutEvent(`evt_test_${RUN}_probe`, "ping", "cs_probe"));
-  } catch (err) {
+  // "pass" by silently not talking to the function. Retries cover the edge
+  // runtime warming up after `supabase start` / `db reset` container restarts.
+  let probe: Response | undefined;
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 10; attempt++) {
+    try {
+      probe = await post(checkoutEvent(`evt_test_${RUN}_probe`, "ping", "cs_probe"));
+      if (probe.status !== 502 && probe.status !== 503) break;
+    } catch (err) {
+      lastErr = err;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+  }
+  if (!probe) {
     throw new Error(
       `stripe-webhook is unreachable at ${fnUrl()}. Run \`supabase start\` ` +
-        `(edge runtime serves supabase/functions/*).\n${String(err)}`,
+        `(edge runtime serves supabase/functions/*).\n${String(lastErr)}`,
     );
   }
   if (probe.status === 401) {
@@ -102,86 +171,36 @@ beforeAll(async () => {
   }
 
   S = serviceClient();
-
-  // Fixture 1: the money-path booking — awaiting_deposit with a pending
-  // payment linked to CS_MAIN (what the server action will create on D5/D6).
-  const { data: b1, error: b1Err } = await S.from("bookings")
-    .insert({
-      business_id: BUSINESS,
-      property_id: KEN.propertyId,
-      member_id: KEN.memberId,
-      kind: "repair",
-      status: "awaiting_deposit",
-      deposit_required: true,
-      request_text: `webhook-test main [run ${RUN}]`,
-    })
-    .select("id")
-    .single();
-  if (b1Err) throw new Error(`fixture booking insert failed: ${b1Err.message}`);
-  mainBookingId = b1!.id;
-
-  const { data: p1, error: p1Err } = await S.from("payments")
-    .insert({
-      booking_id: mainBookingId,
-      amount_cents: 7500,
-      status: "pending",
-      stripe_checkout_session_id: CS_MAIN,
-    })
-    .select("id")
-    .single();
-  if (p1Err) throw new Error(`fixture payment insert failed: ${p1Err.message}`);
-  createdPaymentIds.push(p1!.id);
-
-  // Fixture 2: a booking already PAST awaiting_deposit (late/stale event case).
-  const { data: b2, error: b2Err } = await S.from("bookings")
-    .insert({
-      business_id: BUSINESS,
-      property_id: KEN.propertyId,
-      member_id: KEN.memberId,
-      kind: "repair",
-      status: "confirmed",
-      deposit_required: true,
-      request_text: `webhook-test stale [run ${RUN}]`,
-    })
-    .select("id")
-    .single();
-  if (b2Err) throw new Error(`fixture booking insert failed: ${b2Err.message}`);
-  staleBookingId = b2!.id;
-
-  const { data: p2, error: p2Err } = await S.from("payments")
-    .insert({
-      booking_id: staleBookingId,
-      amount_cents: 7500,
-      status: "paid",
-      stripe_checkout_session_id: CS_STALE,
-    })
-    .select("id")
-    .single();
-  if (p2Err) throw new Error(`fixture payment insert failed: ${p2Err.message}`);
-  createdPaymentIds.push(p2!.id);
-});
+  // The money-path booking: awaiting_deposit + pending payment (D5/D6 shape).
+  mainBookingId = await fixturePair("awaiting_deposit", "pending", CS_MAIN, "main");
+  // A booking already PAST awaiting_deposit (late/stale event case).
+  staleBookingId = await fixturePair("confirmed", "paid", CS_STALE, "stale");
+  // Async-settlement path: completes unpaid, settles later.
+  asyncBookingId = await fixturePair("awaiting_deposit", "pending", CS_ASYNC, "async");
+  // Died-mid-flight reprocess path.
+  midflightBookingId = await fixturePair("awaiting_deposit", "pending", CS_MIDFLIGHT, "midflight");
+}, 90_000);
 
 afterAll(async () => {
   if (!S) return;
-  const bookingIds = [mainBookingId, staleBookingId].filter(Boolean);
   if (createdPaymentIds.length > 0) {
     await S.from("payments").delete().in("id", createdPaymentIds);
   }
-  if (bookingIds.length > 0) {
-    await S.from("booking_transitions").delete().in("booking_id", bookingIds);
-    for (const id of bookingIds) {
+  if (createdBookingIds.length > 0) {
+    await S.from("booking_transitions").delete().in("booking_id", createdBookingIds);
+    for (const id of createdBookingIds) {
       await S.from("outbox").delete().like("dedupe_key", `${id}:%`);
     }
-    await S.from("bookings").delete().in("id", bookingIds);
+    await S.from("bookings").delete().in("id", createdBookingIds);
   }
-  await S.from("stripe_events")
-    .delete()
-    .in("id", [EVT_COMPLETED, EVT_EXPIRED, EVT_STALE, EVT_UNHANDLED]);
+  await S.from("stripe_events").delete().in("id", ALL_EVENT_IDS);
 });
 
-describe("signature verification + idempotency ledger (implemented — must stay green)", () => {
+describe("signature verification + idempotency ledger", () => {
   it("unsigned request is rejected with 400", async () => {
-    const res = await post(checkoutEvent(`evt_test_${RUN}_unsigned`, "checkout.session.completed", CS_MAIN));
+    const res = await post(
+      checkoutEvent(`evt_test_${RUN}_unsigned`, "checkout.session.completed", CS_MAIN),
+    );
     expect(res.status).toBe(400);
   });
 
@@ -224,6 +243,39 @@ describe("signature verification + idempotency ledger (implemented — must stay
     expect(count).toBe(1);
   });
 
+  it("a duplicate whose first attempt died mid-flight (ledger row, processed_at null) is reprocessed, not acked away", async () => {
+    // Simulate a crash between ledger insert and handler: row exists,
+    // processed_at null, state never advanced. Stripe's retry must reprocess.
+    const { error: preErr } = await S.from("stripe_events").insert({
+      id: EVT_MIDFLIGHT,
+      type: "checkout.session.completed",
+      payload: {},
+    });
+    expect(preErr).toBeNull();
+
+    const payload = checkoutEvent(EVT_MIDFLIGHT, "checkout.session.completed", CS_MIDFLIGHT);
+    const res = await post(payload, sign(payload));
+    expect(res.status).toBe(200);
+
+    const { data: payment } = await S.from("payments")
+      .select("status")
+      .eq("stripe_checkout_session_id", CS_MIDFLIGHT)
+      .single();
+    expect(payment!.status).toBe("paid");
+
+    const { data: booking } = await S.from("bookings")
+      .select("status")
+      .eq("id", midflightBookingId)
+      .single();
+    expect(booking!.status).toBe("scheduled");
+
+    const { data: ledger } = await S.from("stripe_events")
+      .select("processed_at")
+      .eq("id", EVT_MIDFLIGHT)
+      .single();
+    expect(ledger!.processed_at).not.toBeNull();
+  });
+
   it("unhandled event types are acked 200 and ledgered (Stripe must not retry them)", async () => {
     const payload = checkoutEvent(EVT_UNHANDLED, "payment_intent.created", CS_MAIN);
     const res = await post(payload, sign(payload));
@@ -237,7 +289,7 @@ describe("signature verification + idempotency ledger (implemented — must stay
   });
 });
 
-describe("state wiring — TODO(D6), red until execution-plan Phase 3 lands (R4 AC)", () => {
+describe("state wiring (R4 acceptance — Gate 2 regression gate)", () => {
   it("checkout.session.completed marks the payment paid (exactly one payment row)", async () => {
     // EVT_COMPLETED was delivered (and replayed) above.
     const { data, error } = await S.from("payments")
@@ -258,6 +310,65 @@ describe("state wiring — TODO(D6), red until execution-plan Phase 3 lands (R4 
     const { data: audit } = await S.from("booking_transitions")
       .select("from_status, to_status, actor")
       .eq("booking_id", mainBookingId)
+      .eq("to_status", "scheduled");
+    expect(audit).toEqual([
+      { from_status: "awaiting_deposit", to_status: "scheduled", actor: "system:stripe" },
+    ]);
+  });
+
+  it("completed with payment_status 'unpaid' records nothing — money truth is payment_status, not session completion", async () => {
+    const payload = checkoutEvent(
+      EVT_ASYNC_UNPAID,
+      "checkout.session.completed",
+      CS_ASYNC,
+      "unpaid",
+    );
+    const res = await post(payload, sign(payload));
+    expect(res.status).toBe(200);
+
+    const { data: payment } = await S.from("payments")
+      .select("status")
+      .eq("stripe_checkout_session_id", CS_ASYNC)
+      .single();
+    expect(payment!.status).toBe("pending");
+
+    const { data: booking } = await S.from("bookings")
+      .select("status")
+      .eq("id", asyncBookingId)
+      .single();
+    expect(booking!.status).toBe("awaiting_deposit");
+
+    const { data: ledger } = await S.from("stripe_events")
+      .select("processed_at")
+      .eq("id", EVT_ASYNC_UNPAID)
+      .single();
+    expect(ledger!.processed_at).not.toBeNull();
+  });
+
+  it("async_payment_succeeded settles the deposit: paid + scheduled, audited as system:stripe", async () => {
+    const payload = checkoutEvent(
+      EVT_ASYNC_OK,
+      "checkout.session.async_payment_succeeded",
+      CS_ASYNC,
+    );
+    const res = await post(payload, sign(payload));
+    expect(res.status).toBe(200);
+
+    const { data: payment } = await S.from("payments")
+      .select("status")
+      .eq("stripe_checkout_session_id", CS_ASYNC)
+      .single();
+    expect(payment!.status).toBe("paid");
+
+    const { data: booking } = await S.from("bookings")
+      .select("status")
+      .eq("id", asyncBookingId)
+      .single();
+    expect(booking!.status).toBe("scheduled");
+
+    const { data: audit } = await S.from("booking_transitions")
+      .select("from_status, to_status, actor")
+      .eq("booking_id", asyncBookingId)
       .eq("to_status", "scheduled");
     expect(audit).toEqual([
       { from_status: "awaiting_deposit", to_status: "scheduled", actor: "system:stripe" },

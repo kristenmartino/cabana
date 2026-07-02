@@ -20,7 +20,13 @@ grant select on all tables in schema public to anon, authenticated;
 grant all on all tables in schema public to service_role;
 grant usage, select on all sequences in schema public to service_role;
 
--- Write helpers stay service-role-only (revokes in 0006/0008); make the
--- positive grant explicit rather than relying on default function privileges.
+-- Write helpers stay service-role-only. The 0006/0008 revokes from
+-- anon/authenticated alone were NO-OPS: Postgres grants EXECUTE on new
+-- functions to PUBLIC by default, and roles inherit through PUBLIC (verified
+-- with has_function_privilege on Day 2 — both roles could execute). Revoke
+-- PUBLIC too, then grant the service role explicitly. Every future function
+-- migration must repeat this pattern; the RLS suite asserts the denial.
+revoke execute on function set_actor(text) from public, anon, authenticated;
+revoke execute on function transition_booking(uuid, text, text) from public, anon, authenticated;
 grant execute on function set_actor(text) to service_role;
 grant execute on function transition_booking(uuid, text, text) to service_role;

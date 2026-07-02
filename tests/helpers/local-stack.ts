@@ -85,6 +85,31 @@ const clientOpts = {
   realtime: { transport: ws as unknown as typeof WebSocket },
 };
 
+// PostgREST reloads its schema cache asynchronously after `db reset` restarts
+// the containers, so the first queries can fail with "Could not find the
+// table ... in the schema cache". Suites call this before touching data.
+export async function awaitApiReady(timeoutMs = 60_000): Promise<void> {
+  const env = stackEnv();
+  const deadline = Date.now() + timeoutMs;
+  let last = "";
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch(`${env.API_URL}/rest/v1/members?select=id&limit=1`, {
+        headers: {
+          apikey: env.SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${env.SERVICE_ROLE_KEY}`,
+        },
+      });
+      if (res.ok) return;
+      last = `${res.status} ${await res.text()}`;
+    } catch (err) {
+      last = String(err);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
+  throw new Error(`Supabase REST API not ready within ${timeoutMs}ms. Last: ${last}`);
+}
+
 // Fixture C: service role — bypasses RLS, the control.
 export function serviceClient(): SupabaseClient {
   const env = stackEnv();

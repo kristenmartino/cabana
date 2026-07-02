@@ -14,7 +14,13 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Pool } from "pg";
-import { anonClient, dbPool, memberClient, serviceClient } from "../helpers/local-stack";
+import {
+  anonClient,
+  awaitApiReady,
+  dbPool,
+  memberClient,
+  serviceClient,
+} from "../helpers/local-stack";
 
 // Seed world (supabase/seed.sql — fixed UUIDs by design).
 const BUSINESS = "b1000000-0000-4000-8000-000000000001";
@@ -38,7 +44,11 @@ const COMPLETED_BOOKING = "d1000000-0000-4000-8000-000000000006"; // terminal st
 const TECH_RAY = "7e000000-0000-4000-8000-000000000003";
 
 // Tables with RLS on and no policies: service-role-only by construction.
+// Keep in lockstep with the "Intentionally NO policies" list in 0005_rls.sql —
+// a table missing here is a table whose isolation nothing tests.
 const SERVICE_ONLY_TABLES = [
+  "businesses",
+  "techs",
   "outbox",
   "stripe_events",
   "ai_events",
@@ -69,6 +79,7 @@ let auditBookingId: string; // created by the set_actor audit test, reused by th
 const createdBookingIds: string[] = [];
 
 beforeAll(async () => {
+  await awaitApiReady();
   S = serviceClient();
   pool = dbPool();
   const [ken, priya] = await Promise.all([
@@ -85,7 +96,7 @@ beforeAll(async () => {
     .eq("id", PRIYA.propertyId)
     .single();
   priyaOriginalNotes = data?.access_notes ?? null;
-});
+}, 90_000);
 
 afterAll(async () => {
   // Remove rows this run created (children first: FK + outbox share the id).
@@ -135,6 +146,26 @@ describe("RLS: member isolation (three-fixture adversarial suite)", () => {
       .eq("id", PRIYA.propertyId);
     expect(bPropErr).toBeNull();
     expect(bProp).toEqual([]);
+  });
+
+  it("A reads own membership and the reference data (plans, service_zips); B's membership is invisible", async () => {
+    const { data: mine, error } = await A.from("memberships").select("member_id, plan_id");
+    expect(error).toBeNull();
+    expect(mine!.map((m) => m.member_id)).toEqual([KEN.memberId]);
+
+    const { data: theirs, error: probeErr } = await A.from("memberships")
+      .select("member_id")
+      .eq("member_id", PRIYA.memberId);
+    expect(probeErr).toBeNull();
+    expect(theirs).toEqual([]);
+
+    // Reference data reads positively — the R1 "what day is my service?" path.
+    const { count: planCount } = await A.from("plans")
+      .select("*", { count: "exact", head: true });
+    expect(planCount).toBe(3);
+    const { count: zipCount } = await A.from("service_zips")
+      .select("*", { count: "exact", head: true });
+    expect(zipCount).toBe(4);
   });
 
   it("A cannot read another member's payments through the bookings join path", async () => {
@@ -224,6 +255,37 @@ describe("RLS: member isolation (three-fixture adversarial suite)", () => {
       .update({ address: "1 Hijacked Blvd" })
       .eq("id", KEN.propertyId);
     expect(error?.code).toBe("42501");
+  });
+
+  it("A cannot execute the write RPCs: transition_booking and set_actor are service-role only", async () => {
+    // EXECUTE goes to PUBLIC by default on new functions — 0009 revokes it.
+    // Without that revoke, any anon-key holder could invoke the write helpers.
+    const { error: rpcErr } = await A.rpc("transition_booking", {
+      p_booking_id: KEN.bookingIds[0],
+      p_to_status: "cancelled", // legal from awaiting_deposit — would succeed if allowed
+      p_actor: "member",
+    });
+    expect(rpcErr).not.toBeNull();
+    expect(rpcErr!.code).toBe("42501");
+
+    const { data: untouched } = await S.from("bookings")
+      .select("status")
+      .eq("id", KEN.bookingIds[0])
+      .single();
+    expect(untouched!.status).toBe("awaiting_deposit");
+
+    const { error: saErr } = await A.rpc("set_actor", { actor: "member" });
+    expect(saErr).not.toBeNull();
+    expect(saErr!.code).toBe("42501");
+
+    const anon = anonClient();
+    const { error: anonErr } = await anon.rpc("transition_booking", {
+      p_booking_id: KEN.bookingIds[0],
+      p_to_status: "cancelled",
+      p_actor: "member",
+    });
+    expect(anonErr).not.toBeNull();
+    expect(anonErr!.code).toBe("42501");
   });
 
   it("anon (signed out) reads nothing from any table", async () => {
