@@ -162,3 +162,36 @@ than a clean pass. If Railway↔Telegram proves persistently flaky, the D7
 error-workflow (dead-letter after 5 + alert) is the backstop — silence never
 means loss. Test data cleaned up; seed world + Airtable pristine. Traces:
 R5/R7 / M2, M3 (partial) / ADR-02.
+
+## Day 3 — Phase 2: member portal wired to live data (ADR-05 refactor)
+The fenced Lovable scaffold is now hardened behind typed server actions + auth —
+the "harden the AI scaffold" half of ADR-05. Generated the authoritative
+Supabase types (lib/supabase/database.types.ts) as the mock→real contract, then:
+magic-link sign-in (members-only: a service-role membership check gates the OTP,
+non-members get a polite dead end, never an account — R1), an /auth/callback that
+exchanges the PKCE code and links the auth user to the member row by email on
+first sign-in, sign-out, and middleware that gates the whole portal to signed-in
+members. A read layer (lib/portal/data.ts) maps the schema to the pages'
+view-models via RLS-scoped reads (member isolation enforced at the DB, not in
+app code) — reconciling Lovable's field names (summary→request_text,
+gateCode/pets→access_notes, its tones→the real status enum→StatusPill
+tone+label), computing next-service from plan.weekly_day in America/New_York.
+Home + request/[id] became server components; access-notes editing (the one
+browser-writable field, via the column grant + stamp trigger) and the intake
+submission are server actions. Intake insert goes through a new atomic RPC
+(0012 create_member_request) so it's audited as actor 'member' — same
+transaction-local-actor reason as transition_booking (0008).
+
+Verified live end-to-end on the local stack (dev on :3000, magic link pulled
+from mailpit): middleware bounces unauthenticated → sign-in; Ken signs in via
+the real PKCE magic link; the callback links his member row; the signed-in home
+renders his ACTUAL seed data — "Hi Ken", next service "Tuesday, Jul 7" computed
+from Weekly Essential, his awaiting_deposit heater request with the right pill,
+history, and the editable access-notes card. The intake write path is verified
+via create_member_request directly (inserts 'requested', audits 'member', emits
+booking.created). One follow-up: the auth session dropped after several rapid
+preview-browser prefetch navigations (a refresh-token-rotation interaction) — the
+code follows the standard @supabase/ssr pattern and the reads worked, so this
+reads as a headless-automation/prefetch artifact; confirm on the Vercel deploy
+(production cookie handling + real browser) before calling it a bug. Import↔
+refactor diff is the ADR-05 artifact. Traces: R1 / ADR-05.
