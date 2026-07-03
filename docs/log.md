@@ -213,3 +213,51 @@ magic links reach a real inbox (cloud has no mailpit); revert or add a dedicated
 member before a clean demo. Follow-up when the production URL becomes the demo
 link: point the cloud Site URL at it. Next: Phase 3 / Gate 2 (intake → Haiku
 triage → Stripe deposit) on a verified auth+intake foundation. Traces: R1 / ADR-05, M1.
+
+## Day 3 (cont.) — Gate 2 CLOSED: money path proven live end-to-end
+Phase 3 shipped and Gate 2 fell in the environment that matters — live in
+production Supabase, one Vercel PR (#3, squash-merged). The full path is now
+proven on real infrastructure: member submits a repair message → Haiku triage
+(4430ms · 1017/161 tokens · 0.95 confidence · service_type=repair) → apply_triage
+(0013, atomic actor 'system') → awaiting_deposit with a personalized ackDraft
+("Thanks for letting us know, Kristen. A grinding noise and priming issue
+usually point to something we can help with quickly. Dana will text…") → coral
+Pay button opens a hosted Stripe Checkout Session for $75 (payments row
+inserted with the session id BEFORE the redirect) → 4242 4242 4242 4242 →
+webhook signature-verified, ledgered idempotent, payments flipped to paid,
+transition_booking(system:stripe) advanced awaiting_deposit → scheduled →
+"Deposit received" rendered. Every never-cut invariant held live, and #4 was
+proven in BOTH directions today: an earlier run with ANTHROPIC_API_KEY missing
+on Vercel wrote validation_failed (3ms, 0 tokens) and routed to needs_review
+with the generic ack — never threw into the member flow. Adversarial verify on
+the branch caught two real defects that would have broken Gate 2 shipped: a
+redirect() call inside a try/catch that swallowed NEXT_REDIRECT (fixed to move
+outside), and a discarded payments.insert error that would have redirected the
+member to Stripe with nothing for the webhook to flip (never-cut #2 breach —
+fixed to throw on payErr). Surprises worth banking: (1) the stripe-webhook
+edge function needs STRIPE_SECRET_KEY too, not just STRIPE_WEBHOOK_SECRET —
+Vercel env vars don't reach Supabase's edge runtime, cost ~30 min at the end;
+(2) Resend "Delivered" does NOT mean "reached the mailbox" — Microsoft 365
+tenant quarantine silently held every magic-link email until we allowlisted
+mail.kristenmartino.ai, half an hour lost; (3) Supabase's Redirect-URL
+wildcards do NOT match across '-' segments in preview subdomains the way
+naive intuition suggests, so per-branch entries are safer than a global
+wildcard; (4) Vercel env vars are read at build time, not at request time —
+adding ANTHROPIC_API_KEY to an already-deployed preview did nothing until the
+next push forced a rebuild; (5) Haiku (index.ts wrote &apos; inside a JSX
+string expression, which React renders literally as text — fixed as follow-up
+55d7c20). Deliberately deferred: (a) the "Confirming your payment…" state's
+copy overpromises — the DB updates from the webhook but the browser tab
+doesn't poll or subscribe, so it requires a manual refresh; small follow-up
+task (add a 3s router.refresh() while paid=1 && awaiting_deposit); (b) two
+orphan test bookings on cloud (9051be1f stuck at 'requested' from a
+pre-merge prod attempt, 18d7914c 'scheduled' from this success); left in
+place — the second is a nice "here's a real paid booking" demo artifact,
+and the first is a natural example of a member submitting before the code
+was there; cleanup optional before a live demo; (c) golden case
+g10_price_fishing flaky on Haiku non-determinism, not blocking (Phase 3
+didn't touch the prompt or schema); (d) secret-scan CI job broken by a
+gitleaks-action GitHub token-permission issue that predates this PR — CI
+hygiene follow-up. Prod redeploy of main will land shortly; the demo URL
+(cabana-git-main-…vercel.app) is now the Phase 3 money path. Traces: R2, R4 /
+ADR-03, ADR-08 / M1, M2, C-money-path.
