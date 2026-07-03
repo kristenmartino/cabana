@@ -67,7 +67,7 @@ export default async function RequestStatus({
       {req.status === "needs_review" && (
         <section className="mt-5 rounded-2xl bg-card p-5 shadow-card">
           <p className="font-display text-lg font-semibold text-deepwater">
-            {req.ackDraft ? "We&apos;re looking into this." : "Thanks — we&apos;ve got your note."}
+            {req.ackDraft ? "We're looking into this." : "Thanks — we've got your note."}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
             {req.ackDraft ?? `${SUPPORT.name} will text you shortly to sort out the details.`}
