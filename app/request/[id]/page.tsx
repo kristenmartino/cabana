@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/sailfish/AppShell";
 import { StatusPill } from "@/components/sailfish/StatusPill";
 import { getRequestStatus, type StepKey } from "@/lib/portal/data";
+import { PayDepositButton } from "@/components/portal/PayDepositButton";
 
 const STEPS: { key: StepKey; title: string; hint: string }[] = [
   { key: "received", title: "Received", hint: "We've got your note." },
@@ -16,10 +17,14 @@ const SUPPORT = { name: "Dana", phone: "(561) 555-0100" };
 
 export default async function RequestStatus({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ paid?: string }>;
 }) {
   const { id } = await params;
+  const resolved = await searchParams;
+  const isPaid = resolved.paid ? true : false;
   const req = await getRequestStatus(id);
   if (!req) notFound(); // RLS-scoped: not this member's booking, or unknown id
 
@@ -62,10 +67,10 @@ export default async function RequestStatus({
       {req.status === "needs_review" && (
         <section className="mt-5 rounded-2xl bg-card p-5 shadow-card">
           <p className="font-display text-lg font-semibold text-deepwater">
-            Thanks — we&apos;ve got your note.
+            {req.ackDraft ? "We're looking into this." : "Thanks — we've got your note."}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {SUPPORT.name} will text you shortly to sort out the details.
+            {req.ackDraft ?? `${SUPPORT.name} will text you shortly to sort out the details.`}
           </p>
         </section>
       )}
@@ -73,20 +78,28 @@ export default async function RequestStatus({
       {/* Deposit due (Stripe checkout wires in D6) */}
       {req.deposit?.due && (
         <section className="mt-5 overflow-hidden rounded-3xl bg-gradient-to-br from-[color-mix(in_oklab,var(--color-coral)_12%,white)] to-[color-mix(in_oklab,var(--color-coral)_22%,white)] p-6 shadow-card ring-1 ring-inset ring-[color-mix(in_oklab,var(--color-coral)_28%,transparent)]">
-          <h2 className="font-display text-xl font-semibold text-deepwater">
-            One quick step — your deposit
-          </h2>
-          <p className="mt-2 text-sm text-deepwater/80">
-            Your spot is held until the deposit is in. It goes toward the repair — you&apos;re not
-            paying extra.
-          </p>
-          <button
-            type="button"
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-coral px-4 py-3.5 text-base font-semibold text-coral-foreground shadow-sm transition hover:brightness-95 active:brightness-90"
-          >
-            Pay ${req.deposit.amount} deposit
-          </button>
-          <p className="mt-2 text-center text-xs text-deepwater/70">Secure checkout — powered by Stripe.</p>
+          {isPaid && req.status === "awaiting_deposit" ? (
+            <>
+              <h2 className="font-display text-xl font-semibold text-deepwater">
+                Confirming your payment…
+              </h2>
+              <p className="mt-2 text-sm text-deepwater/80">
+                This updates automatically once your bank confirms — the page is safe to close.
+              </p>
+            </>
+          ) : (
+            <>
+              <h2 className="font-display text-xl font-semibold text-deepwater">
+                One quick step — your deposit
+              </h2>
+              <p className="mt-2 text-sm text-deepwater/80">
+                Your spot is held until the deposit is in. It goes toward the repair — you&apos;re not
+                paying extra.
+              </p>
+              <PayDepositButton bookingId={req.id} amount={req.deposit.amount} />
+              <p className="mt-2 text-center text-xs text-deepwater/70">Secure checkout — powered by Stripe.</p>
+            </>
+          )}
         </section>
       )}
 
