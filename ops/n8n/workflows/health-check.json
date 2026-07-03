@@ -1,0 +1,156 @@
+{
+  "name": "health-check",
+  "nodes": [
+    {
+      "id": "a1b2c3d4-5e6f-4a1b-8c9d-0e1f2a3b4c5d",
+      "icon": "fa:clock",
+      "name": "Every 5m",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -400,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b2c3d4e5-6f7a-4b2c-9d0e-1f2a3b4c5d6e",
+      "icon": "fa:globe",
+      "name": "Ping /api/health",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -140,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://cabana-git-main-kristenmartinos-projects.vercel.app/api/health",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "c3d4e5f6-7a8b-4c3d-0e1f-2a3b4c5d6e7f",
+      "icon": "fa:code-branch",
+      "name": "Health unhealthy?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        120,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "combinator": "or",
+          "conditions": [
+            {
+              "id": "d4e5f6a7-8b9c-4d3e-1f2a-3b4c5d6e7f8a",
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 200,
+              "operator": {
+                "type": "number",
+                "operation": "notEquals"
+              }
+            },
+            {
+              "id": "e5f6a7b8-9c0d-4e3f-2a3b-4c5d6e7f8a9b",
+              "leftValue": "={{ $json.body.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notEquals",
+                "singleValue": true
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "f6a7b8c9-0d1e-4f3a-3b4c-5d6e7f8a9b0c",
+      "icon": "fa:paper-plane",
+      "name": "Alert Dana",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        380,
+        -80
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "<PLACEHOLDER_ID>",
+          "name": "Telegram"
+        }
+      },
+      "parameters": {
+        "chatId": "7019824213",
+        "text": "={{ '🚨 Cabana health check FAILED — status ' + $json.statusCode + ' body ' + JSON.stringify($json.body) }}",
+        "additionalFields": {},
+        "resource": "message",
+        "operation": "sendMessage"
+      }
+    }
+  ],
+  "connections": {
+    "Every 5m": {
+      "main": [
+        [
+          {
+            "node": "Ping /api/health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ping /api/health": {
+      "main": [
+        [
+          {
+            "node": "Health unhealthy?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Health unhealthy?": {
+      "main": [
+        [
+          {
+            "node": "Alert Dana",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "",
+  "id": "",
+  "meta": {
+    "instanceId": ""
+  },
+  "tags": []
+}
