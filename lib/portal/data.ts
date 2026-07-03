@@ -166,6 +166,7 @@ export type RequestStatusData = {
   submitted: string;
   currentStep: StepKey;
   deposit: { amount: number; status: string; due: boolean } | null;
+  ackDraft: string | null;
 };
 
 export async function getRequestStatus(id: string): Promise<RequestStatusData | null> {
@@ -173,15 +174,19 @@ export async function getRequestStatus(id: string): Promise<RequestStatusData | 
 
   const { data: booking } = await supabase
     .from("bookings")
-    .select("id, status, request_text, created_at, deposit_required")
+    .select("id, status, request_text, created_at, deposit_required, triage")
     .eq("id", id)
     .maybeSingle();
   if (!booking) return null; // RLS: not this member's booking (or doesn't exist)
 
+  // A member can start Checkout more than once per booking (retry path),
+  // so there may be several payments rows — take the most recent.
   const { data: payment } = await supabase
     .from("payments")
     .select("amount_cents, status")
     .eq("booking_id", id)
+    .order("created_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   const meta = statusMeta(booking.status);
@@ -200,6 +205,8 @@ export async function getRequestStatus(id: string): Promise<RequestStatusData | 
           due: booking.status === "awaiting_deposit" && (payment?.status ?? "pending") === "pending",
         }
       : null,
+    ackDraft:
+      (booking.triage as { member_ack_draft?: string | null } | null)?.member_ack_draft ?? null,
   };
 }
 
