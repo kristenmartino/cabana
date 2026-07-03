@@ -195,3 +195,21 @@ code follows the standard @supabase/ssr pattern and the reads worked, so this
 reads as a headless-automation/prefetch artifact; confirm on the Vercel deploy
 (production cookie handling + real browser) before calling it a bug. Import↔
 refactor diff is the ADR-05 artifact. Traces: R1 / ADR-05.
+
+## Day 3 (cont.) — Phase 2 CLOSED: verified in production, deployed, merged
+Deployed the portal to Vercel (Git integration; repo root = app root) and settled
+the flagged auth-session question in the environment that matters. First deploy
+surfaced two real config gaps, both fixed: Vercel Deployment Protection was on
+(blocks a public demo — disabled), and the cloud project's default Site URL was
+localhost:3000 so magic links redirected there instead of /auth/callback (set
+Site URL + redirect-URL wildcard to the Vercel domain). With that, the FULL flow
+was verified by a human in a real browser on the production build: gate →
+magic-link → /auth/callback links the member → signed-in home with real
+RLS-scoped data → "Report a problem" → submit → lands on the live status page.
+Crucially the session HELD through the write — so the earlier drop was a
+headless-automation/prefetch artifact, not a bug. PR #2 merged to main (Phase 2
+R1 done). Note: cloud member a1..01 was remapped to the tester's real email so
+magic links reach a real inbox (cloud has no mailpit); revert or add a dedicated
+member before a clean demo. Follow-up when the production URL becomes the demo
+link: point the cloud Site URL at it. Next: Phase 3 / Gate 2 (intake → Haiku
+triage → Stripe deposit) on a verified auth+intake foundation. Traces: R1 / ADR-05, M1.
