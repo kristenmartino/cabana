@@ -261,3 +261,72 @@ gitleaks-action GitHub token-permission issue that predates this PR — CI
 hygiene follow-up. Prod redeploy of main will land shortly; the demo URL
 (cabana-git-main-…vercel.app) is now the Phase 3 money path. Traces: R2, R4 /
 ADR-03, ADR-08 / M1, M2, C-money-path.
+
+## Day 4 — Slice 1 + Slice 2 shipped; R4 AC #5 closed, R5 delivery guarantees teethed
+Two-slice night through the multi-agent orchestration harness. Slice 1 (PR #4, 4
+files): expire_stale_deposits() SECURITY DEFINER RPC (0014) that sweeps
+awaiting_deposit bookings older than 24h in one transaction with actor
+'system:expiry' set once at top — closes R4 AC #5, the last uncovered R4
+criterion after Gate 2. Paired with an n8n cron (deposit-expiry.json) hitting
+the RPC every 5 min and a tiny AwaitingPaymentRefresh client component that
+router.refresh()es every 3s inside the ?paid=1 && awaiting_deposit branch so
+the "This updates automatically" copy stopped overpromising. Slice 2 (PR #5, 3
+files): /api/health probe returning outbox pending count + oldest-unprocessed
+age (unhealthy above 100 or 300s → HTTP 503 for cheap monitoring gating), an
+n8n cron (health-check.json) that pings /api/health every 5 min and alerts
+Dana on unhealthy, and an instance-level error-workflow.json — the alarm on
+the alarm. Reconciliation.json was deliberately deferred to a Slice 2b after
+adversarial verify caught it shipping broken (Airtable pagination naive
+one-page GET would cause a false drift alert every night once the base has
+>100 bookings, plus a fan-in from two parallel HTTP nodes into a Code node
+without a Merge — Code fires twice with one input each). Better queued than
+merged-red. Adversarial verify caught real defects both nights (three across
+the two slices): a redirect() inside a try/catch that would have swallowed
+NEXT_REDIRECT (Slice 1 Item C, fixed), a payments.insert error silently
+discarded that would have redirected members to Stripe with nothing for the
+webhook to flip (Gate 2 verify, fixed), n8n auth type mismatch
+(predefinedCredentialType instead of genericCredentialType for httpCustomAuth
+— would have 401'd every 5-min expiry cron silently, fixed on Slice 1), and
+literal newlines inside a JS single-quoted expression that would have
+SyntaxError'd every alarm-on-the-alarm alert (Slice 2 error-workflow, fixed).
+Three hotfix PRs after the main slices: PR #6 (secret-scan permissions —
+grant pull-requests:read so gitleaks-action stops silently 403ing every PR
+before scanning; validated by its own CI going green), PR #8 (health
+endpoint querying nonexistent outbox.dead_lettered_at column, then
+middleware gating /api/health from the public — my two-mistake Bermuda
+Triangle: I invented a column that doesn't exist AND forgot to allowlist the
+new route, so it returned {"ok":false,"error":""} to a member browser and
+n8n's health-check would have hit a redirect), PR #9 (n8n workflows used
+telegramApi credential type when the Cabana pattern is raw httpRequest with
+$env.TELEGRAM_BOT_TOKEN, discovered mid-import when user hit "no credentials
+set up yet"). Filed issue #7 documenting golden's g10_price_fishing
+stochastic failure — a real containment case that occasionally slips because
+Haiku classifies "How much would it cost to replace a pool pump motor?" as a
+repair with ≥0.8 confidence when the correct route is needs_review, and
+explicitly declining to fix it via test-level retry (that'd bypass a safety
+check, exactly the anti-pattern CLAUDE.md warns against); the real fix is
+prompts/triage/v2.md + PROMPT_VERSION bump as its own focused slice.
+Incident: **Railway → api.telegram.org outbound is intermittently timing out
+at the TCP level** — same flake as Gate 1's restart-survival test, but this
+time visible mid-live-test. Retry-on-fail (3× 2s wait, 10s timeout — dropped
+from the n8n 5-min default so we get honest fast failures instead of phantom
+hangs) absorbs some; others fail visibly in the execution log. Alert-on-the
+-alarm-on-the-alarm (Slice 2c queued) is a small Resend email fallback that
+tests Telegram first and emails Dana if all retries fail — the honest
+"silence never means loss" answer while Railway's networking to Telegram
+stays flaky. Secret exposure: user pasted the full bot token in an n8n
+execution log excerpt while debugging; rotated via BotFather /revoke,
+Railway env updated, redeployed. Second such rotation this project (first
+was Stripe test key); the pattern is now "any log excerpt shared for
+debugging gets a secret sweep and a rotate afterward." Deliberately NOT
+done tonight: (a) reconciliation.json — deferred to 2b, needs Airtable
+pagination + Merge; (b) Resend fallback for error-workflow — 2c, closes the
+Railway↔Telegram gap; (c) Alert Dana defaults (10s timeout + retry) persisted
+into workflow JSON so re-imports don't lose them — 2d; (d) golden g10 prompt
+v2 hardening — issue #7; (e) live end-to-end verification of health-check
+alerting during unhealthy state (unhealthy path proved working via the
+intentional-break test on deposit-expiry, which routes through the same
+Alert Dana). Traces: R4 (AC #5 closed), R5 (delivery guarantees advanced),
+R7 (Telegram alerts wired), R8 (CI hygiene + health probe) / ADR-02 / M3
+partial (outbox depth monitor in place, chaos still to run) / C-slice1,
+C-slice2, C-slice2b/c/d queued.
