@@ -4,6 +4,7 @@ import { AppShell } from "@/components/sailfish/AppShell";
 import { StatusPill } from "@/components/sailfish/StatusPill";
 import { getRequestStatus, type StepKey } from "@/lib/portal/data";
 import { PayDepositButton } from "@/components/portal/PayDepositButton";
+import { AwaitingPaymentRefresh } from "@/components/portal/AwaitingPaymentRefresh";
 
 const STEPS: { key: StepKey; title: string; hint: string }[] = [
   { key: "received", title: "Received", hint: "We've got your note." },
@@ -80,6 +81,7 @@ export default async function RequestStatus({
         <section className="mt-5 overflow-hidden rounded-3xl bg-gradient-to-br from-[color-mix(in_oklab,var(--color-coral)_12%,white)] to-[color-mix(in_oklab,var(--color-coral)_22%,white)] p-6 shadow-card ring-1 ring-inset ring-[color-mix(in_oklab,var(--color-coral)_28%,transparent)]">
           {isPaid && req.status === "awaiting_deposit" ? (
             <>
+              <AwaitingPaymentRefresh />
               <h2 className="font-display text-xl font-semibold text-deepwater">
                 Confirming your payment…
               </h2>
