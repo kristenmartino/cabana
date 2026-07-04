@@ -25,13 +25,56 @@
         -140,
         0
       ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
       "parameters": {
         "method": "POST",
         "url": "=https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ chat_id: '7019824213', text: '🚨 n8n WORKFLOW FAILED\\n\\nWorkflow: ' + $json.workflow.name + '\\nNode: ' + ($json.execution.error.node ? $json.execution.error.node.name : 'unknown') + '\\nError: ' + $json.execution.error.message + '\\n\\nExecution: ' + $json.execution.url }) }}",
-        "options": {}
+        "options": {
+          "timeout": 10000
+        }
+      }
+    },
+    {
+      "id": "33333333-3333-4333-8333-333333333303",
+      "icon": "fa:envelope",
+      "name": "Alert Dana via Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        120,
+        100
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.RESEND_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ from: 'alerts@mail.kristenmartino.ai', to: ['kristen.e.martino@gmail.com'], subject: '🚨 n8n WORKFLOW FAILED — ' + $('On workflow error').item.json.workflow.name, text: '🚨 n8n WORKFLOW FAILED\\n\\nWorkflow: ' + $('On workflow error').item.json.workflow.name + '\\nNode: ' + ($('On workflow error').item.json.execution.error.node ? $('On workflow error').item.json.execution.error.node.name : 'unknown') + '\\nError: ' + $('On workflow error').item.json.execution.error.message + '\\n\\nExecution: ' + $('On workflow error').item.json.execution.url }) }}",
+        "options": {
+          "timeout": 10000
+        }
       }
     }
   ],
@@ -41,6 +84,18 @@
         [
           {
             "node": "Alert Dana",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Dana": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Alert Dana via Email",
             "type": "main",
             "index": 0
           }
