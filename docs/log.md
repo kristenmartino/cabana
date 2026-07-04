@@ -368,3 +368,38 @@ queue unchanged: #10 (2b reconciliation), #7 (golden g10 prompt v2), then Slice
 3 (R6 Airtable + R7 bot commands), Slice 4 (chaos), Slice 5 (v1.0). Traces: R5
 (delivery guarantees — alert channel now has its own DLQ), R6 (email infra
 proven) / ADR-02 / never-cut #3 / closes #11, #12.
+
+## Day 5 (cont.) — #7 golden: temperature 0 + v2 prompt; triage is now deterministic
+What looked like a one-case flake (g10_price_fishing) turned out to be the whole
+golden set running non-deterministically. The tell: consecutive CI runs failed
+almost-disjoint case sets (g05/g17/g19, then g12/g13/g16/g17/g19) — stochastic
+variance, not a prompt bug. Root cause: the triage call never set temperature,
+so it defaulted to 1.0; Haiku's confidence swung run-to-run and borderline cases
+flipped across the 0.8 auto-qualify gate at random. The golden set had been
+FLAKY-GREEN this whole time — passing only when the coin flips happened to land,
+which is why it reddened random PRs. Fixed at the root: temperature 0 in
+lib/triage/index.ts. Triage is a classifier — the same message must route the
+same way on resubmit, in production and in CI alike; determinism is a feature,
+not just a test convenience. That single change is the real fix behind #7.
+Temperature 0 then made the run reproducible, which exposed four cases that had
+been flaky-passing — all genuine triage gaps, hardened in prompts/triage/v2.md
+(v1 immutable per ADR-08; PROMPT_VERSION bumped; buildPrompt now derives the
+filename from the version so they can't drift): (1) price-only questions →
+plan_question/human, narrowly scoped so a reported fault or service request
+still classifies by the work (g10, protects g05); (2) hard rule 9 —
+attachment-dependent messages ("see the attached photo") get confidence ≤0.3 →
+human, because the AI can't qualify what it can't see (g19); (3) complaint
+priority — recurring failure + ultimatum/threat-to-leave is a complaint even
+when a fault is named, so angry customers reach a human instead of
+auto-qualifying (g16, a containment case); (4) one_off_clean counts from new
+members and swampy/green water without equipment symptoms is a cleaning need,
+not a repair (g17). These are real principles, not test-gaming. Result: golden
+19/20 (95%), 100% containment, DETERMINISTIC — the first time the gate can
+actually function as a regression gate on future prompt changes rather than a
+coin flip. The lone non-containment miss (g09_overflow_now routing an urgent
+overflow to needs_review) is safe-side and clears the ≥90% gate with margin;
+noted as a possible future tighten, doesn't gate. Iterated entirely through CI
+(deterministic runs made each one a clean signal) per the user's validate-via-CI
+call; four pushes to converge. Traces: R2 (golden ≥90% + 100% containment),
+never-cut #4 / ADR-08 / closes #7. Queue now clear of follow-ups; next is Slice
+3 (R6 Airtable console + R7 Telegram commands), then Slice 4 chaos, Slice 5 v1.0.
