@@ -403,3 +403,62 @@ noted as a possible future tighten, doesn't gate. Iterated entirely through CI
 call; four pushes to converge. Traces: R2 (golden ≥90% + 100% containment),
 never-cut #4 / ADR-08 / closes #7. Queue now clear of follow-ups; next is Slice
 3 (R6 Airtable console + R7 Telegram commands), then Slice 4 chaos, Slice 5 v1.0.
+
+## Day 6 — Slice 3 CLOSED: R6 owner console + R7 owner bot, both proven live
+The two remaining P0 requirements after the money path are done. Orchestrated
+the code halves (Haiku authors + adversarial verify), deployed via CLI/MCP, and
+proved every path live on cloud.
+
+R7 — Telegram bot (PR #16, deployed): command router on top of the Gate-1 auth +
+Approve slice (preserved byte-for-byte). /today + /week read a new get_schedule
+RPC (0015) that does the ET day/week RANGE math in SQL — CLAUDE.md forbids
+new Date() string math near booking windows, so boundaries live in Postgres and
+the edge fn only formats via Intl. /week groups by tech. /cancel goes through
+transition_booking('owner:telegram') with P0001/P0002 handling. /brief is Haiku
+(temp 0) summarizing strictly from query rows, never inventing, "nothing
+scheduled" on empty, and try/catch-wrapped so a missing key / model failure
+degrades to "Brief unavailable" not a 500. Adversarial verify caught an HTML
+injection (unescaped tech display_name would 400 the whole Telegram send) —
+fixed with an esc() helper.
+
+R6 — Airtable console (PRs #17 write-back fn, #18 enrichment, Marie guide):
+- Write-back edge fn (PR #17): mark_completed -> transition_booking('completed',
+  'office:airtable'), visit_notes -> direct update, every outcome logged to
+  sync_log via a logSync() helper (verify caught silent sync_log inserts). ADR-01
+  whitelist stays exactly {visit_notes, mark_completed}.
+- Enriched projection (PR #18): surgical, additive edit to the never-cut
+  outbox-consumer — the enrich query now embeds members(full_name),
+  properties(address), techs(display_name), payments(status) via PostgREST FK
+  embedding (all 4 FKs confirmed live first), and Build actions derives
+  member_name/address/tech_name/deposit_status. Fail-safe: optional-chained +
+  Array.isArray-guarded, so a missing embed projects null, never breaks delivery.
+  Delivery graph proven byte-identical.
+- Console (user-built in Airtable): 5 grid views + a "This Week by Tech" Record
+  Review interface, grouped by tech, showing real enriched data (Rosa Delgado /
+  77 Cypress Trail / Jenna / paid / confirmed — no uuids). Marie one-page guide
+  committed.
+- Write-back round-trip PROVEN LIVE: Marie checks mark_completed on a confirmed
+  booking -> edge fn -> transition -> booking 'completed', audited
+  'office:airtable', sync_log 'applied'. visit_notes edit -> 'applied'. Guard
+  test: mark_completed on a scheduled booking -> 409, guard held, no illegal
+  completion. Airtable stays a projection; Supabase stays authoritative; the two
+  whitelisted fields round-trip; every change audited by channel.
+
+Spine re-test (never-cut #3) surfaced two real findings, neither a regression,
+both filed: (#19) re-importing outbox-consumer resets the Airtable URL to the
+committed __BASE_ID__ placeholder -> 404 until re-edited inline; fix is
+{{ $env.AIRTABLE_BASE_ID }}. (#20) the Railway->Telegram intermittent TCP
+timeout now visibly hits the CORE outbox delivery ping (not just alerts) — the
+Airtable and Telegram legs are coupled, so a Telegram flake blocks the row from
+marking processed even though Airtable delivered; retry/dead-letter/alert still
+means never-silent, but the delivery ping has no email fallback like the Slice-2c
+alert path does. During that test the health-check fired (pending:1, oldest>300s
+-> 503) AND the alert reached Dana via the Resend email fallback because Telegram
+was down — Slice 2c validated live, for real. Test artifact (row 24, a
+booking.status_changed stuck on the Telegram leg) marked processed to clear the
+monitor; d1...0004 left confirmed then completed via the write-back test.
+Deferred/known: #19, #20, plus a minor UX gap — a rejected write-back leaves the
+Airtable checkbox checked (no auto-revert), against the Marie guide's "it
+reverts" promise; candidate follow-up. Next: Slice 4 chaos day (M3 evidence),
+then Slice 5 v1.0. Traces: R6, R7 / ADR-01, ADR-07, ADR-08 / never-cut #3, #4 /
+M-owner-console, M-owner-bot / C-slice3.
