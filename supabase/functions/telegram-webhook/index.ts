@@ -10,6 +10,7 @@
 //     ?url=<function-url>&secret_token=<TELEGRAM_WEBHOOK_SECRET>
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import Anthropic from "npm:@anthropic-ai/sdk";
 
 const WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET")!;
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
@@ -27,6 +28,13 @@ async function tg(method: string, payload: Record<string, unknown>) {
   });
   if (!res.ok) console.error(`telegram ${method} failed`, await res.text());
   return res;
+}
+
+// Escape free-text (member/address/tech display names) before it lands in an
+// HTML-parsed Telegram message — an unescaped '&', '<', or '>' makes Telegram
+// reject the whole send with 400, so the owner sees nothing.
+function esc(s: string): string {
+  return (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 Deno.serve(async (req) => {
@@ -151,14 +159,226 @@ Deno.serve(async (req) => {
   }
 
   const text: string = update.message?.text ?? "";
-  // TODO(D8): command router — /today /week /cancel <id> /brief
-  //   /today, /week : query bookings by window in businesses.tz, format compactly
-  //   /cancel <id>  : transition with actor 'owner:telegram'
-  //   /brief        : Claude summary generated strictly from query results (R7 AC:
-  //                   the bot never invents data; empty day => "nothing scheduled")
+  const [cmd, ...args] = text.trim().split(/\s+/);
+
+  // /today — show today's schedule
+  if (cmd === "/today") {
+    const { data: rows, error } = await db.rpc("get_schedule", { p_span: "today" });
+    if (error) {
+      console.error("telegram-webhook: get_schedule('today') failed", error);
+      await tg("sendMessage", {
+        chat_id: chatId,
+        text: "Couldn't load the schedule — try again.",
+      });
+      return new Response("ok", { status: 200 });
+    }
+
+    if (!rows || rows.length === 0) {
+      await tg("sendMessage", {
+        chat_id: chatId,
+        text: "Nothing scheduled today.",
+      });
+      return new Response("ok", { status: 200 });
+    }
+
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      weekday: "short",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+
+    let message = "🗓 Today\n\n";
+    for (const row of rows) {
+      const timeStr = formatter.format(new Date(row.win_start));
+      const memberSafe = esc(row.member || "");
+      const addressSafe = esc(row.address || "");
+      const techSafe = esc(row.tech || "unassigned");
+      message += `• ${timeStr} — ${memberSafe}, ${addressSafe} [${row.status}] (${techSafe})\n`;
+    }
+
+    await tg("sendMessage", {
+      chat_id: chatId,
+      text: message,
+      parse_mode: "HTML",
+    });
+    return new Response("ok", { status: 200 });
+  }
+
+  // /week — show this week's schedule, grouped by tech
+  if (cmd === "/week") {
+    const { data: rows, error } = await db.rpc("get_schedule", { p_span: "week" });
+    if (error) {
+      console.error("telegram-webhook: get_schedule('week') failed", error);
+      await tg("sendMessage", {
+        chat_id: chatId,
+        text: "Couldn't load the schedule — try again.",
+      });
+      return new Response("ok", { status: 200 });
+    }
+
+    if (!rows || rows.length === 0) {
+      await tg("sendMessage", {
+        chat_id: chatId,
+        text: "Nothing scheduled this week.",
+      });
+      return new Response("ok", { status: 200 });
+    }
+
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      weekday: "short",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+
+    // Group by tech
+    const byTech = new Map<string, typeof rows>();
+    for (const row of rows) {
+      const tech = row.tech || "Unassigned";
+      if (!byTech.has(tech)) {
+        byTech.set(tech, []);
+      }
+      byTech.get(tech)!.push(row);
+    }
+
+    let message = "🗓 This week\n\n";
+    for (const [tech, techRows] of byTech) {
+      message += `<b>${esc(tech)}</b>\n`;
+      for (const row of techRows) {
+        const timeStr = formatter.format(new Date(row.win_start));
+        const memberSafe = esc(row.member || "");
+        const addressSafe = esc(row.address || "");
+        message += `  • ${timeStr} — ${memberSafe}, ${addressSafe} [${row.status}]\n`;
+      }
+      message += "\n";
+    }
+
+    await tg("sendMessage", {
+      chat_id: chatId,
+      text: message,
+      parse_mode: "HTML",
+    });
+    return new Response("ok", { status: 200 });
+  }
+
+  // /cancel <booking_id> — cancel a booking
+  if (cmd === "/cancel") {
+    const id = args[0];
+    if (!id) {
+      await tg("sendMessage", {
+        chat_id: chatId,
+        text: "Usage: /cancel <booking id>",
+      });
+      return new Response("ok", { status: 200 });
+    }
+
+    const { error } = await db.rpc("transition_booking", {
+      p_booking_id: id,
+      p_to_status: "cancelled",
+      p_actor: "owner:telegram",
+    });
+
+    if (!error) {
+      await tg("sendMessage", {
+        chat_id: chatId,
+        text: "✅ Booking cancelled.",
+      });
+    } else if (error.code === "P0001") {
+      await tg("sendMessage", {
+        chat_id: chatId,
+        text: "Can't cancel — that booking isn't in a cancellable state.",
+      });
+    } else if (error.code === "P0002") {
+      await tg("sendMessage", {
+        chat_id: chatId,
+        text: "No booking with that id.",
+      });
+    } else {
+      console.error("telegram-webhook: cancel failed", error);
+      await tg("sendMessage", {
+        chat_id: chatId,
+        text: "Couldn't cancel — try again.",
+      });
+    }
+
+    return new Response("ok", { status: 200 });
+  }
+
+  // /brief — AI-generated one-paragraph summary of today
+  if (cmd === "/brief") {
+    try {
+      const { data: rows, error } = await db.rpc("get_schedule", { p_span: "today" });
+      if (error) {
+        console.error("telegram-webhook: /brief get_schedule failed", error);
+        await tg("sendMessage", {
+          chat_id: chatId,
+          text: "Brief unavailable right now.",
+        });
+        return new Response("ok", { status: 200 });
+      }
+
+      const formatter = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/New_York",
+        weekday: "short",
+        hour: "numeric",
+        minute: "2-digit",
+      });
+
+      // Build a plain summary of today's rows
+      let summary: string;
+      if (!rows || rows.length === 0) {
+        summary = "Nothing scheduled today.";
+      } else {
+        const bookingLines = rows.map(
+          (row) =>
+            `${formatter.format(new Date(row.win_start))} - ${row.member} at ${row.address} (${row.status}, ${row.tech})`
+        );
+        summary = bookingLines.join("\n");
+      }
+
+      const anthropic = new Anthropic({
+        apiKey: Deno.env.get("ANTHROPIC_API_KEY"),
+      });
+
+      const message = await anthropic.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 400,
+        temperature: 0,
+        messages: [
+          {
+            role: "user",
+            content: `Summarize TODAY for Dana in ONE short paragraph using ONLY the provided rows. Never invent bookings, names, or times. If there are zero rows, say exactly "Nothing scheduled today."\n\nToday's bookings:\n${summary}`,
+          },
+        ],
+      });
+
+      const briefText = message.content[0].type === "text" ? message.content[0].text : "Brief unavailable.";
+
+      await tg("sendMessage", {
+        chat_id: chatId,
+        text: briefText,
+      });
+    } catch (err) {
+      console.error("telegram-webhook: /brief failed", err);
+      await tg("sendMessage", {
+        chat_id: chatId,
+        text: "Brief unavailable right now.",
+      });
+    }
+
+    return new Response("ok", { status: 200 });
+  }
+
+  // Unknown command — show help
   await tg("sendMessage", {
     chat_id: chatId,
-    text: `Cabana bot online. Commands coming Day 8. You said: ${text.slice(0, 100)}`,
+    text: `<b>Cabana bot commands:</b>
+/today — Show today's schedule
+/week — Show this week's schedule
+/cancel &lt;id&gt; — Cancel a booking
+/brief — AI summary of today`,
+    parse_mode: "HTML",
   });
 
   return new Response("ok", { status: 200 });
