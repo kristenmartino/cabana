@@ -99,6 +99,10 @@ export async function triageIntake(
       {
         model: MODEL,
         max_tokens: 1000,
+        temperature: 0, // triage is a classifier: same message -> same routing.
+        // Default temp (1.0) let confidence swing run-to-run and flip borderline
+        // cases across the 0.8 auto-qualify gate — non-deterministic triage AND a
+        // flaky golden set. 0 makes both reproducible.
         messages: [{ role: "user", content: input }],
       },
       { timeout: TIMEOUT_MS },
