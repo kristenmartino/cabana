@@ -19,24 +19,19 @@
     {
       "id": "22222222-2222-4222-8222-222222222202",
       "name": "Alert Dana",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         -140,
         0
       ],
       "parameters": {
-        "chatId": "7019824213",
-        "text": "={{ '🚨 n8n WORKFLOW FAILED\\n\\nWorkflow: ' + $json.workflow.name + '\\nNode: ' + ($json.execution.error.node ? $json.execution.error.node.name : 'unknown') + '\\nError: ' + $json.execution.error.message + '\\n\\nExecution: ' + $json.execution.url }}",
-        "resource": "message",
-        "operation": "sendMessage",
-        "additionalFields": {}
-      },
-      "credentials": {
-        "telegramApi": {
-          "id": "PLACEHOLDER_ID",
-          "name": "Telegram"
-        }
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: '7019824213', text: '🚨 n8n WORKFLOW FAILED\\n\\nWorkflow: ' + $json.workflow.name + '\\nNode: ' + ($json.execution.error.node ? $json.execution.error.node.name : 'unknown') + '\\nError: ' + $json.execution.error.message + '\\n\\nExecution: ' + $json.execution.url }) }}",
+        "options": {}
       }
     }
   ],

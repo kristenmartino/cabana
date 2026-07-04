@@ -86,24 +86,19 @@
       "id": "f6a7b8c9-0d1e-4f3a-3b4c-5d6e7f8a9b0c",
       "icon": "fa:paper-plane",
       "name": "Alert Dana",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         380,
         -80
       ],
-      "credentials": {
-        "telegramApi": {
-          "id": "<PLACEHOLDER_ID>",
-          "name": "Telegram"
-        }
-      },
       "parameters": {
-        "chatId": "7019824213",
-        "text": "={{ '🚨 Cabana health check FAILED — status ' + $json.statusCode + ' body ' + JSON.stringify($json.body) }}",
-        "additionalFields": {},
-        "resource": "message",
-        "operation": "sendMessage"
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: '7019824213', text: '🚨 Cabana health check FAILED — status ' + $json.statusCode + ' body ' + JSON.stringify($json.body) }) }}",
+        "options": {}
       }
     }
   ],
