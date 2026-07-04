@@ -330,3 +330,41 @@ Alert Dana). Traces: R4 (AC #5 closed), R5 (delivery guarantees advanced),
 R7 (Telegram alerts wired), R8 (CI hygiene + health probe) / ADR-02 / M3
 partial (outbox depth monitor in place, chaos still to run) / C-slice1,
 C-slice2, C-slice2b/c/d queued.
+
+## Day 5 — Slice 2c+2d: alert-channel DLQ (Resend fallback) — Railway↔Telegram incident closed
+Bundled 2c+2d (PR #13, closes #11/#12) through the orchestration harness. The
+Day-4 incident — Railway → api.telegram.org intermittent TCP timeouts that can
+exhaust an alert's retries and leave error-workflow itself erroring silently —
+is now closed with a second-tier alert path. Alert Dana (Telegram) in both
+health-check.json and error-workflow.json uses onError continueErrorOutput:
+success routes to main[0] (empty — no duplicate, Dana already got the Telegram),
+failure-after-3-retries routes to main[1] → a new Alert Dana via Email node that
+POSTs to Resend from alerts@mail.kristenmartino.ai. Verified live end-to-end:
+broke the Telegram URL, forced an upstream error, watched Alert Dana burn 3
+retries (~30s at the persisted 10s timeout), then the fallback email landed in
+the demo inbox with the correct upstream failure context. 2d persisted the
+retry/timeout defaults (retryOnFail 3×2s, timeout 10s vs n8n's 5-min default)
+into the JSON so re-imports stop dropping them — the Day-4 manual-toggle lesson.
+Adversarial verify earned its keep again: a dedicated context-references
+verifier caught the email node in health-check using bare $json, which on Alert
+Dana's error output is the Telegram HTTP failure object, NOT the ping response —
+would have emailed "the Telegram call 5xx'd" instead of the actual health
+failure. Fixed to $('Ping /api/health').item.json (error-workflow's author got
+$('On workflow error') right first try). One false-positive blocker (newline
+escaping — verifier miscounted escaping levels reading the built-object JSON;
+on-disk \\n was already correct). Operational learnings banked: (1) n8n keeps
+its own DB copy of every workflow — pulling the file locally does nothing;
+re-import is mandatory to push changes, and re-import resets the
+default-error-workflow setting + can silently import a stale version if the PR
+isn't merged first (user re-imported the pre-2c/2d 4-node health-check off an
+unmerged main before we caught it); (2) the errorTrigger node sits at [-400,0],
+often scrolled off-canvas on import — looks "missing" until zoom-to-fit; (3)
+Resend API keys are view-once — the SMTP key can't be recovered from Supabase's
+masked field, so n8n got its own scoped key (cabana-n8n-alerts), which is better
+hygiene anyway (revoke one consumer without breaking the other). Deliberately
+NOT done: third-tier fallback if Resend ALSO fails (out of scope — those
+failures are visible in n8n's execution log, the acceptable ceiling). Deferred
+queue unchanged: #10 (2b reconciliation), #7 (golden g10 prompt v2), then Slice
+3 (R6 Airtable + R7 bot commands), Slice 4 (chaos), Slice 5 (v1.0). Traces: R5
+(delivery guarantees — alert channel now has its own DLQ), R6 (email infra
+proven) / ADR-02 / never-cut #3 / closes #11, #12.
