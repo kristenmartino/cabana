@@ -26,6 +26,12 @@ jobs:
 
   secret-scan:
     runs-on: ubuntu-latest
+    # gitleaks-action reads the PR's commit list via the GitHub API — the
+    # default GITHUB_TOKEN blocks that unless we grant pull-requests:read
+    # here. contents:read is for the repo checkout itself.
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with:
