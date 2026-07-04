@@ -1,0 +1,249 @@
+{
+  "name": "reconciliation",
+  "nodes": [
+    {
+      "id": "a1b2c3d4-5e6f-4a1b-8c9d-0e1f2a3b4c5d",
+      "icon": "fa:clock",
+      "name": "Every night 3am ET",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -600,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b2c3d4e5-6f7a-4b2c-9d0e-1f2a3b4c5d6e",
+      "icon": "fa:globe",
+      "name": "Count Supabase bookings",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -360,
+        -120
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://uuviebpmiwzjyabucheo.supabase.co/rest/v1/bookings?select=id",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "count=exact"
+            },
+            {
+              "name": "Range-Unit",
+              "value": "items"
+            },
+            {
+              "name": "Range",
+              "value": "0-0"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "REPLACE_WITH_SUPABASE_CRED_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "id": "c3d4e5f6-7a8b-4c3d-0e1f-2a3b4c5d6e7f",
+      "icon": "fa:globe",
+      "name": "Count Airtable records",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -360,
+        120
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.airtable.com/v0/appqBebMTUb0qsB1f/Bookings?pageSize=100&fields%5B%5D=id",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "offset",
+                    "value": "={{ $response.body.offset }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ $response.body.offset === undefined }}",
+              "limitPagesFetched": false
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_AIRTABLE_CRED_ID",
+          "name": "Airtable"
+        }
+      }
+    },
+    {
+      "id": "d4e5f6a7-8b9c-4d3e-1f2a-3b4c5d6e7f8a",
+      "icon": "fa:code-branch",
+      "name": "Join counts",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        -120,
+        0
+      ],
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition"
+      }
+    },
+    {
+      "id": "e5f6a7b8-9c0d-4e3f-2a3b-4c5d6e7f8a9b",
+      "icon": "fa:code",
+      "name": "Compute drift",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        120,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Supabase exact count from Content-Range header \"0-0/N\" (n8n lowercases header names).\nconst sbItem = $('Count Supabase bookings').first().json;\nconst cr = sbItem.headers ? (sbItem.headers['content-range'] || sbItem.headers['Content-Range']) : undefined;\nconst supabaseCount = cr && cr.includes('/') ? parseInt(cr.split('/')[1], 10) : 0;\n// Airtable: sum records across ALL paginated items.\nconst airItems = $('Count Airtable records').all();\nlet airtableCount = 0;\nfor (const it of airItems) {\n  const recs = it.json && it.json.body ? it.json.body.records : (it.json ? it.json.records : null);\n  if (Array.isArray(recs)) airtableCount += recs.length;\n}\nconst drift = Math.abs(supabaseCount - airtableCount);\nconst text = drift === 0\n  ? '✅ Reconciliation: ' + supabaseCount + ' bookings, ' + airtableCount + ' synced, 0 drift.'\n  : '⚠️ Reconciliation: ' + supabaseCount + ' in Supabase, ' + airtableCount + ' in Airtable, drift = ' + drift + '.';\nreturn [{ json: { text, supabaseCount, airtableCount, drift } }];"
+      }
+    },
+    {
+      "id": "f6a7b8c9-0d1e-4f3a-3b4c-5d6e7f8a9b0c",
+      "icon": "fa:paper-plane",
+      "name": "Send report",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        360,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: '7019824213', text: $json.text }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every night 3am ET": {
+      "main": [
+        [
+          {
+            "node": "Count Supabase bookings",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Count Airtable records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count Supabase bookings": {
+      "main": [
+        [
+          {
+            "node": "Join counts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count Airtable records": {
+      "main": [
+        [
+          {
+            "node": "Join counts",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Join counts": {
+      "main": [
+        [
+          {
+            "node": "Compute drift",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute drift": {
+      "main": [
+        [
+          {
+            "node": "Send report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "",
+  "id": "",
+  "meta": {
+    "instanceId": ""
+  },
+  "tags": []
+}
