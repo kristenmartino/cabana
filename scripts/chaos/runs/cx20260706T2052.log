@@ -1,0 +1,21 @@
+=== CHAOS RUN LOG (M3 evidence) ===
+Verified at: 2026-07-06T21:41:37.586Z
+Run ID: cx20260706T2052
+Marker: [chaos:cx20260706T2052]
+Injected at: 2026-07-06T20:52:20.549Z
+Bookings: 50 (awaiting_deposit: 12, needs_review: 38)
+Drain: 0s
+
+[PASS] A1: Airtable exactly-once
+  50 marker records for 50 bookings — missing: 0, duplicated: 0, outside chaos set: 0
+[PASS] A2: Outbox no-third-state
+  103 chaos outbox rows — limbo (neither processed nor dead-lettered): 0, bookings with ZERO outbox rows: 0, dead-lettered: 43 [outbox ids 94, 104, 64, 116, 108, 111, 101, 87, 97, 95, 98, 107, 105, 124, 117, 90, 126, 114, 112, 121, 69, 127, 120, 123, 42, 43, 65, 125, 115, 109, 122, 26, 76, 99, 72, 39, 68, 113, 93, 110, 103, 80, 82 — cross-check the Telegram/email alert fired for each]
+[PASS] A3: No duplicate delivery
+  duplicate booking.created events: 0, duplicate (booking,to_status) transitions: 0 (C3: member-email leg not built; 0 emails expected and 0 sent)
+[PASS] A4: Payment idempotency
+  2 Stripe-originated paid payments checked (1 seed fixtures with null session id skipped), 0 violations
+
+M2 submit->processed over 96 chaos rows: p50 858.5s, p95 2478.0s (includes the 90s n8n kill window — the guarantee under test is delivery, not latency)
+
+Notes: ai_events rows left intentionally (flat log, historical record).
+C3 (member email) not built — email-count assertion adapted, see A3.

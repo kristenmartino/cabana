@@ -462,3 +462,53 @@ Airtable checkbox checked (no auto-revert), against the Marie guide's "it
 reverts" promise; candidate follow-up. Next: Slice 4 chaos day (M3 evidence),
 then Slice 5 v1.0. Traces: R6, R7 / ADR-01, ADR-07, ADR-08 / never-cut #3, #4 /
 M-owner-console, M-owner-bot / C-slice3.
+
+## Day 7 — CHAOS DAY: Gate 3a closed, M3 proven live (run cx20260706T2052)
+The guarantees got earned. 50 bookings injected through the real code path
+(create_member_request → live Haiku triage → ai_events → apply_triage; five of
+them with the API key stripped to fire the production fallback), against the
+live cloud stack, marker-scoped, no reset. The scripted sabotage all landed —
+and reality improvised harder than the script: n8n deployment removed for 90s
+mid-inject (backlog peaked at 48 pending with zero consumers, nothing lost);
+Stripe checkout.session.completed replayed 5x across the two Gate-2 events
+(ledger swallowed all of them); the 60-second Airtable token break turned into
+~25 MINUTES of continuous 401s because the manual token restore was imperfect
+and the PAT had to be regenerated — the retry loop just kept absorbing it; and
+the double-tap test upgraded itself: a retry re-delivered the same Approve ping
+twice (at-least-once delivery working as designed), the owner approved the same
+booking from two different messages, and the audit shows exactly ONE confirmed
+transition — the guard no-opped the duplicate.
+
+VERIFY: ALL FOUR ASSERTIONS PASS. A1: 50/50 Airtable exactly-once — zero
+missing, zero duplicated, zero strays, through the n8n kill and the extended
+auth outage (the idempotent upsert retried until auth returned). A2: 103 chaos
+outbox rows, zero limbo, zero silent bookings, 43 dead-lettered — every one
+recorded and alerted, never silence. A3: zero duplicate created events, zero
+duplicate (booking,to_status) transitions — through the replays and the
+duplicate approve. A4: both Stripe-originated payments ledger-verified with
+exactly one awaiting_deposit→scheduled each; one seed fixture (paid, null
+session id) transparently skipped and stated in the log. M2: p50 858s / p95
+2478s — grotesque, and honestly annotated: the numbers include a 90s consumer
+kill and a 25-minute auth outage; the guarantee under test is delivery, and
+delivery was perfect. Evidence committed: scripts/chaos/runs/cx20260706T2052.log
+(+ state json). Cleanup was surgical: 50 Airtable records, 843 dead_letters,
+103 outbox rows, 103 transitions, 50 bookings deleted; DB verified back to the
+exact pre-chaos baseline (12 bookings, 0 pending, dead_letters at the historic
+25). ai_events kept (flat log; ~50 real triage calls now on record).
+
+Chaos found exactly one real design flaw — which is the day working as
+intended: DEAD-LETTER IS NOT TERMINAL (#23). The consumer inserts the
+dead_letters row + alert but leaves processed_at null, so the sweep re-retries
+forever: rows hit attempts 19-22 (threshold 5) and 798 duplicate dead-letter
+rows piled up with repeated alerts. M3 held regardless (nothing lost, nothing
+silent — louder than intended, if anything), but the semantics are wrong; fix
+is a dead_lettered_at column + sweep filter (migration 0016), filed with a
+redrive runbook note. Two smaller run-day fixes landed on main: the ws
+transport for Node 20 (same fix the RLS helper used — supabase-js demands a
+WebSocket at construction) and A4 scoping to non-null session ids (seed
+fixtures predate Stripe wiring; skipped count stated in the log, nothing
+silently ignored). Also proven incidentally: the health-check + Resend email
+fallback fired correctly when the outage aged rows past 300s — the monitoring
+stack watched the chaos in real time. Traces: R5, R8 / M2, M3 / never-cut #3,
+#5 / Gate 3a CLOSED. Remaining: Slice 5 — README + failure-modes, Loom,
+Vercel postmortem, Claude Desktop hour, tag v1.0.

@@ -1,0 +1,307 @@
+{
+  "runId": "cx20260706T2052",
+  "marker": "[chaos:cx20260706T2052]",
+  "startedAt": "2026-07-06T20:52:20.549Z",
+  "bookings": [
+    {
+      "id": "726e1da9-8527-4be4-9f14-6c8c17f934fc",
+      "status": "awaiting_deposit",
+      "route": "auto_qualified",
+      "createdAt": "2026-07-06T20:52:32.143Z"
+    },
+    {
+      "id": "fcee9fbb-32b0-4754-82a5-cb118fc98fe0",
+      "status": "awaiting_deposit",
+      "route": "auto_qualified",
+      "createdAt": "2026-07-06T20:52:38.556Z"
+    },
+    {
+      "id": "581aa875-198b-4873-b4d0-a2aa20a02d1c",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:52:48.175Z"
+    },
+    {
+      "id": "1521a26a-cf57-43a1-ba8a-a2b76d889041",
+      "status": "awaiting_deposit",
+      "route": "auto_qualified",
+      "createdAt": "2026-07-06T20:52:52.890Z"
+    },
+    {
+      "id": "24a83eb9-a18b-4fb2-a7da-79db40e56d99",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:52:57.333Z"
+    },
+    {
+      "id": "3922e558-8214-49d8-baf2-fcf3f90d2cbf",
+      "status": "awaiting_deposit",
+      "route": "auto_qualified",
+      "createdAt": "2026-07-06T20:53:01.671Z"
+    },
+    {
+      "id": "8b7c9c50-8b6f-40fe-be6b-57b4f96ee75a",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:53:11.322Z"
+    },
+    {
+      "id": "a7cf4c57-7508-4476-af0f-81844045ff96",
+      "status": "awaiting_deposit",
+      "route": "auto_qualified",
+      "createdAt": "2026-07-06T20:53:16.616Z"
+    },
+    {
+      "id": "842d8838-fbd2-495e-aa9b-443b13de2615",
+      "status": "awaiting_deposit",
+      "route": "auto_qualified",
+      "createdAt": "2026-07-06T20:53:18.810Z"
+    },
+    {
+      "id": "81cb16c4-6089-466d-a38a-ae0c28f2b651",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:53:28.545Z"
+    },
+    {
+      "id": "db37af84-4736-4c4f-9c4a-6cc9fe373055",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:53:36.285Z"
+    },
+    {
+      "id": "a85a5810-f8f8-4b13-a5d9-e12155f08555",
+      "status": "awaiting_deposit",
+      "route": "auto_qualified",
+      "createdAt": "2026-07-06T20:53:47.478Z"
+    },
+    {
+      "id": "7f6d83c5-09f6-4c83-8e4a-2147426faa51",
+      "status": "awaiting_deposit",
+      "route": "auto_qualified",
+      "createdAt": "2026-07-06T20:53:52.514Z"
+    },
+    {
+      "id": "c5d2b2d4-da5d-47ca-9456-03c49f1aa55e",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:54:02.756Z"
+    },
+    {
+      "id": "56dde04b-526e-4166-b7b4-60553e0407ee",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:54:07.284Z"
+    },
+    {
+      "id": "bcb2eb26-c1f7-481c-877b-609977e3dfb7",
+      "status": "awaiting_deposit",
+      "route": "auto_qualified",
+      "createdAt": "2026-07-06T20:54:18.169Z"
+    },
+    {
+      "id": "d8568093-faee-489a-957e-ce2b8f6e033c",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:54:28.567Z"
+    },
+    {
+      "id": "0d989c18-5cdb-41b6-b2b5-0543fc7a4a71",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:54:36.807Z"
+    },
+    {
+      "id": "bf3c582f-748f-4d60-8b5a-b35e87fd0a01",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:54:47.371Z"
+    },
+    {
+      "id": "d1c88fe7-74e5-49c5-adf1-83437c34860d",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:54:56.524Z"
+    },
+    {
+      "id": "eb8b1da7-9f33-4212-a652-4d090f645d91",
+      "status": "awaiting_deposit",
+      "route": "auto_qualified",
+      "createdAt": "2026-07-06T20:55:01.496Z"
+    },
+    {
+      "id": "2abe403d-e168-4c78-b4ce-423eb0da8991",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:55:12.152Z"
+    },
+    {
+      "id": "907ec01b-d8c4-4709-baa1-fbeb03829d98",
+      "status": "awaiting_deposit",
+      "route": "auto_qualified",
+      "createdAt": "2026-07-06T20:55:16.476Z"
+    },
+    {
+      "id": "46199c85-a61c-40cd-8075-90e61cdf9837",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:55:27.227Z"
+    },
+    {
+      "id": "ef85e5c8-2789-492a-b65e-db96f8f26faf",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:55:30.353Z"
+    },
+    {
+      "id": "15b47d57-13b5-48ed-9ea5-4302491a60ca",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:55:41.176Z"
+    },
+    {
+      "id": "f8421927-877a-46c1-a855-1ef046a56bff",
+      "status": "awaiting_deposit",
+      "route": "auto_qualified",
+      "createdAt": "2026-07-06T20:55:49.891Z"
+    },
+    {
+      "id": "0251d5cf-c556-405e-9cc2-9f9a65c7d84e",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:55:59.118Z"
+    },
+    {
+      "id": "0ba40a24-f79d-4ea9-b37c-2577d5769a38",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:56:07.469Z"
+    },
+    {
+      "id": "9eac0019-3762-4ff0-b383-998e095d2dd4",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:56:17.223Z"
+    },
+    {
+      "id": "34781453-6bbe-4e8c-930c-d36cd1fd2a52",
+      "status": "needs_review",
+      "route": "auto_qualified",
+      "createdAt": "2026-07-06T20:56:19.965Z"
+    },
+    {
+      "id": "c0c32f6f-1183-455e-b4c2-27e61fd59110",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:56:32.636Z"
+    },
+    {
+      "id": "4028ec81-2c4f-498b-b18f-8e910090dff3",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:56:44.343Z"
+    },
+    {
+      "id": "4159cee0-b4e4-4d3d-afb3-ec3c8a90f9d5",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:56:53.560Z"
+    },
+    {
+      "id": "5008991a-9f64-423a-8af7-250337c43cf1",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:56:54.122Z"
+    },
+    {
+      "id": "5f080fd4-d077-4cb9-8a32-6f710f2e883c",
+      "status": "needs_review",
+      "route": "auto_qualified",
+      "createdAt": "2026-07-06T20:56:59.715Z"
+    },
+    {
+      "id": "fc653286-d383-4844-a12b-782d2ffabb48",
+      "status": "needs_review",
+      "route": "auto_qualified",
+      "createdAt": "2026-07-06T20:57:01.858Z"
+    },
+    {
+      "id": "3ed18e47-0369-4875-abcd-48a635236315",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:57:09.822Z"
+    },
+    {
+      "id": "2dccc195-dc1c-4c9f-8b98-206ee52fbcf3",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:57:20.744Z"
+    },
+    {
+      "id": "88dae6b5-1133-4e7c-b28f-74e8cb02eb25",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:57:33.502Z"
+    },
+    {
+      "id": "663515b6-e7ff-4042-9241-9a6fe8012270",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:57:37.740Z"
+    },
+    {
+      "id": "5b612b74-f0fe-4e76-b6d7-c2ea6a60b5ca",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:57:50.402Z"
+    },
+    {
+      "id": "819f89c8-2c4f-42a0-905a-d5dd7b5437e2",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:57:54.096Z"
+    },
+    {
+      "id": "3c1b9394-fc47-4937-8890-e7f8a1341b09",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:58:03.595Z"
+    },
+    {
+      "id": "33b57d0b-29cd-4a2b-a103-9987faf0cca6",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:58:08.814Z"
+    },
+    {
+      "id": "aef5757f-eb57-4b05-8e2b-6ffc8896596b",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:58:19.761Z"
+    },
+    {
+      "id": "cd3decea-553d-4c41-ac34-08a0c482b96e",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:58:28.152Z"
+    },
+    {
+      "id": "9ea5781c-2a1a-41ce-b303-c4825f4b1f9b",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:58:33.159Z"
+    },
+    {
+      "id": "8a067d1b-f8a7-4494-939c-7dcf407819cc",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:58:36.465Z"
+    },
+    {
+      "id": "ead9dc52-f7bc-4174-af17-03eabc7a45f3",
+      "status": "needs_review",
+      "route": "needs_review",
+      "createdAt": "2026-07-06T20:58:41.662Z"
+    }
+  ]
+}
