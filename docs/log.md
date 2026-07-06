@@ -512,3 +512,56 @@ fallback fired correctly when the outage aged rows past 300s — the monitoring
 stack watched the chaos in real time. Traces: R5, R8 / M2, M3 / never-cut #3,
 #5 / Gate 3a CLOSED. Remaining: Slice 5 — README + failure-modes, Loom,
 Vercel postmortem, Claude Desktop hour, tag v1.0.
+
+## Day 8 — Slice 5: the ship-out artifacts, fact-checked into honesty
+The v1.0 reviewer surface: README rewritten from the stale Day-0 version to
+the shipped reality — failure-modes table surfaced directly (with the chaos
+run's live results bolded into the relevant rows), an M1–M6 evidence table
+where every claim links to a committed artifact, quickstart against the real
+15-migration schema, a rotation runbook distilled from the two real rotations,
+and cost notes. Plus: docs/notes/vercel-build-debug.md (the induced-build-break
+deliverable replaced by postmortems of the three REAL deploy-surface incidents
+— Supabase Site URL silent fallback, build-time env snapshotting, and the
+health-endpoint empty-error/missing-column/middleware-gate triple — with the
+substitution stated openly); docs/loom-script.md (7 beats, 90s); and
+docs/desktop-assistant/README.md (the timed-hour protocol, clock rules
+explicit so the artifact stays honest).
+
+Then the drafts went through an adversarial fact-check against the repo and
+log — and it earned its cost: 12 findings, including one BLOCKER (the README
+claimed "all three gates closed" when Gate 3b's Loom/Desktop-hour/tag are
+still pending — corrected to the supportable claim) and one flat inversion of
+our own history (the M5 note attributed the golden flake to latency-driven
+fallback; the log says the opposite — it was sampling randomness from an
+unset temperature, and the latency episode was the separate PR-#22 incident;
+the two had blurred together in the retelling). Smaller corrections: ADR
+count 8→9, the Loom script told the presenter to manually refresh at the
+exact beat where Slice 1 built auto-refresh (the demo now shows the page
+flipping on its own — it's a feature beat, not a stage direction), and the
+Vercel note's "three Vercel-side incidents" reframed honestly (one is
+Supabase-config, one platform, one app code — representative of deploy-surface
+debugging). The checker also caught three EVIDENCE-CHAIN gaps in this log
+itself, closed here:
+
+1. **C3 cut, formally recorded**: the member email leg was never built. Cut
+   C3 per the pre-agreed order (after C1 /brief was NOT cut — it shipped —
+   and C2 write-back shipped too; C3 was taken instead of slipping Gate 3).
+   Effect: Telegram + portal status remain the member-facing channels; the
+   chaos log's A3 states the adapted assertion. Revisit post-v1.0 alongside
+   the Resend infra that Slice 2c already proved.
+2. **Slice 2b landing, retroactively noted**: reconciliation.json shipped in
+   PR #14 (Day 5) with the Airtable pagination + Merge fan-in fixes and is
+   active on the n8n instance — the Day-5 entry predated the merge and never
+   said so.
+3. **Stripe key rotation origin**: the build's first rotation. The test
+   secret key was pasted into chat during Phase-3 env setup (same class of
+   exposure as the Day-4 Telegram token — a secret crossing a conversational
+   surface); rolled in the Stripe dashboard minutes later, Vercel + .env.local
+   updated. The pattern both rotations taught — any log excerpt or config
+   pasted while debugging gets a secret sweep and a rotate — is now the
+   README runbook's preamble.
+
+Remaining for the v1.0 tag, all human-hands work: record the Loom (script
+committed), run the Claude Desktop timed hour (protocol committed), paste the
+Loom URL into the README status line, flip the status to v1.0, tag. Traces:
+R8 / M1 / Gate 3b in flight / C3 recorded.
