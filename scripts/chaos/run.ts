@@ -3,7 +3,8 @@
 // Targets LIVE CLOUD STACK: no db reset. Chaos bookings scoped by marker "[chaos:<runId>]"
 // Phases: --phase inject | verify | cleanup (optional --marker for verify/cleanup)
 
-import { createAdminClient } from "../../lib/supabase/admin";
+import { createClient } from "@supabase/supabase-js";
+import ws from "ws";
 import { triageIntake, type MemberContext } from "../../lib/triage";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from "node:fs";
 import { join } from "node:path";
@@ -45,6 +46,20 @@ function loadEnv(): void {
       process.exit(2);
     }
   }
+}
+
+// Local admin client: same service-role client the app's lib/supabase/admin.ts
+// builds, plus the ws transport — Node 20 has no native WebSocket and
+// supabase-js demands one at construction (same fix as tests/helpers/local-stack.ts).
+function adminClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: { persistSession: false },
+      realtime: { transport: ws as unknown as typeof WebSocket },
+    },
+  );
 }
 
 // ============================================================================
@@ -162,7 +177,7 @@ function buildMessagePool(): string[] {
 // ============================================================================
 
 async function buildMemberContext(): Promise<{ ctx: MemberContext; member: any; property: any }> {
-  const admin = createAdminClient();
+  const admin = adminClient();
 
   const { data: members, error: memberError } = await admin
     .from("members")
@@ -241,7 +256,7 @@ async function phaseInject(): Promise<void> {
   console.log(`Marker: ${marker}`);
   console.log(`Start time: ${startedAt}`);
 
-  const admin = createAdminClient();
+  const admin = adminClient();
   const { ctx, member, property } = await buildMemberContext();
 
   console.log(`Member: ${ctx.memberName}`);
@@ -406,7 +421,7 @@ async function phaseVerify(marker?: string): Promise<void> {
   console.log(`Run ID: ${runId}`);
   console.log(`Marker: ${stateFile.marker}`);
 
-  const admin = createAdminClient();
+  const admin = adminClient();
   const runStartIso = stateFile.startedAt;
   const S = new Set(stateFile.bookings.map((b) => b.id));
 
@@ -824,7 +839,7 @@ async function phaseCleanup(marker?: string): Promise<void> {
   console.log(`Run ID: ${runId}`);
   console.log(`Marker: ${stateFile.marker}`);
 
-  const admin = createAdminClient();
+  const admin = adminClient();
   const S = new Set(stateFile.bookings.map((b) => b.id));
 
   console.log(`\nCleaning up ${S.size} bookings...\n`);
