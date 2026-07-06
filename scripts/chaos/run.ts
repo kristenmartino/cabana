@@ -686,10 +686,21 @@ async function phaseVerify(marker?: string): Promise<void> {
   // nothing silently truncates at PostgREST's 1000-row default cap as these
   // tables grow.
   console.log("  A4: Payment idempotency...");
+  // Scoped to Stripe-originated payments: seed fixtures carry status='paid'
+  // with a NULL session id (they predate the Stripe wiring — the no-reset
+  // deviation means they're present). The ledger-traceability invariant is
+  // about payments that actually went through Stripe; the skipped count is
+  // stated in the log so nothing is silently ignored.
   const { data: payments, error: payError } = await admin
     .from("payments")
     .select("booking_id, stripe_checkout_session_id, status")
-    .eq("status", "paid");
+    .eq("status", "paid")
+    .not("stripe_checkout_session_id", "is", null);
+  const { count: seedPaidSkipped } = await admin
+    .from("payments")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "paid")
+    .is("stripe_checkout_session_id", null);
 
   if (payError) {
     assertions.push({
@@ -732,7 +743,7 @@ async function phaseVerify(marker?: string): Promise<void> {
     assertions.push({
       name: "A4: Payment idempotency",
       passed: a4Violations === 0,
-      details: `${(payments as any[]).length} paid payments checked, ${a4Violations} violations${a4Details.length ? ` — ${a4Details.join("; ")}` : ""}`,
+      details: `${(payments as any[]).length} Stripe-originated paid payments checked (${seedPaidSkipped ?? 0} seed fixtures with null session id skipped), ${a4Violations} violations${a4Details.length ? ` — ${a4Details.join("; ")}` : ""}`,
     });
   }
 
