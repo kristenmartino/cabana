@@ -3,9 +3,9 @@
 // to live in a chat app: it can approve real work orders, so authentication
 // comes before everything else.
 //
-// STATUS: Day-1/Day-8 skeleton. Auth patterns (secret token + allowlist) are
-// implemented; command routing is TODO. The Approve/Needs-info callback slice
-// (Gate-1 spine) is wired below. Register the webhook with:
+// STATUS: shipped. Auth (secret token + allowlist) → Approve/Needs-info
+// callbacks → command router (/today /week /cancel /brief). Register the
+// webhook with:
 //   https://api.telegram.org/bot<TOKEN>/setWebhook
 //     ?url=<function-url>&secret_token=<TELEGRAM_WEBHOOK_SECRET>
 
@@ -143,11 +143,11 @@ Deno.serve(async (req) => {
     }
 
     if (action === "needsinfo" && bookingId) {
-      // v0: acknowledge only. The full needs-info flow (state change + member
-      // outreach) lands Day 8; for the spine we just confirm the tap.
+      // Acknowledge the tap; the follow-up (reaching out to the member) is
+      // Dana's — templated member outreach from the bot is a v1.5 item (P1).
       await tg("answerCallbackQuery", {
         callback_query_id: cb.id,
-        text: "Noted — needs info (Day 8)",
+        text: "Noted — reach out to the member for details.",
       });
       return new Response("ok", { status: 200 });
     }

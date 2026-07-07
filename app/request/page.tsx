@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { AppShell } from "@/components/sailfish/AppShell";
 import { submitRequest } from "./actions";
 
@@ -8,15 +8,8 @@ const RESPONSE_TIME = "usually within a few minutes";
 
 export default function NewRequest() {
   const [text, setText] = useState("");
-  const [photo, setPhoto] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  const onFile = (f: File | undefined) => {
-    if (!f) return;
-    setPhoto(URL.createObjectURL(f));
-  };
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -64,46 +57,8 @@ export default function NewRequest() {
           />
         </div>
 
-        {/* Photo dropzone (attach UI; storage lands with the D5 intake / P1) */}
-        <div className="mt-4">
-          <p className="mb-2 text-sm font-medium text-deepwater">
-            Add a photo <span className="font-normal text-muted-foreground">(optional)</span>
-          </p>
-          {!photo ? (
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border bg-card/50 px-4 py-6 text-sm font-medium text-muted-foreground transition hover:border-lagoon hover:text-deepwater"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
-                <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.75" />
-                <circle cx="9" cy="11" r="1.5" fill="currentColor" />
-                <path d="M21 17l-5-5-8 8" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              Snap or upload a photo
-            </button>
-          ) : (
-            <div className="relative overflow-hidden rounded-2xl border border-border bg-card">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={photo} alt="Attached" className="h-48 w-full object-cover" />
-              <button
-                type="button"
-                onClick={() => setPhoto(null)}
-                className="absolute right-2 top-2 rounded-full bg-deepwater/85 px-3 py-1 text-xs font-semibold text-white backdrop-blur"
-              >
-                Remove
-              </button>
-            </div>
-          )}
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={(e) => onFile(e.target.files?.[0])}
-          />
-        </div>
+        {/* Photo attachments flow through to Airtable in v1.5 (P1) — until then
+            the intake is text-only rather than a control that silently drops files. */}
 
         {error && <p className="mt-4 text-center text-sm text-destructive">{error}</p>}
 

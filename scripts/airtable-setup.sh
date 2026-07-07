@@ -129,7 +129,11 @@ create_payload="$(cat <<'JSON'
         "dateFormat": { "name": "iso" },
         "timeFormat": { "name": "24hour" },
         "timeZone": "utc"
-      } }
+      } },
+    { "name": "member_name", "type": "singleLineText" },
+    { "name": "address", "type": "singleLineText" },
+    { "name": "tech_name", "type": "singleLineText" },
+    { "name": "deposit_status", "type": "singleLineText" }
   ]
 }
 JSON

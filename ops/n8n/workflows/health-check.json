@@ -137,7 +137,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ from: 'alerts@mail.kristenmartino.ai', to: ['kristen.e.martino@gmail.com'], subject: '🚨 Cabana health check FAILED', text: 'Cabana health check FAILED\\n\\nStatus: ' + $('Ping /api/health').item.json.statusCode + '\\nBody: ' + JSON.stringify($('Ping /api/health').item.json.body) + '\\n\\nTelegram delivery to Dana failed after 3 retries — this is the fallback path.' }) }}",
+        "jsonBody": "={{ JSON.stringify({ from: $env.ALERT_FROM, to: [$env.ALERT_EMAIL], subject: '🚨 Cabana health check FAILED', text: 'Cabana health check FAILED\\n\\nStatus: ' + $('Ping /api/health').item.json.statusCode + '\\nBody: ' + JSON.stringify($('Ping /api/health').item.json.body) + '\\n\\nTelegram delivery to Dana failed after 3 retries — this is the fallback path.' }) }}",
         "options": {
           "timeout": 10000
         }

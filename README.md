@@ -83,11 +83,20 @@ Mailpit (`supabase start` prints its URL). Add `ANTHROPIC_API_KEY` to
 request routes to `needs_review` with the holding reply (that fallback *is*
 the designed behavior, not a degraded mode).
 
-Money path, locally:
+Money path, locally — the edge runtime reads Stripe keys from
+`supabase/functions/.env` (git-ignored); `stripe listen` prints the webhook
+secret:
 
 ```bash
+printf 'STRIPE_SECRET_KEY=sk_test_...\nSTRIPE_WEBHOOK_SECRET=whsec_...\n' > supabase/functions/.env
 stripe listen --forward-to http://127.0.0.1:54321/functions/v1/stripe-webhook
 ```
+
+**Live demo:** the portal is member-gated by design (R1) — a stranger at the
+prod URL sees only the sign-in gate and, for a non-member email, a polite dead
+end (no account, no error page). So the demo is the 90-second
+[Loom](docs/loom-script.md) and a local run, not an open link. Architecture at
+a glance lives in [`docs/02-architecture.md`](docs/02-architecture.md).
 
 ## Testing
 
@@ -158,6 +167,12 @@ CLAUDE.md             conventions + never-cut list for Claude Code sessions
 - The member email leg was never built — C3, the pre-agreed cut list's third
   entry; the cut is recorded in the log (Day 8) and the chaos log states the
   adapted assertion rather than pretending.
+- Deliberately deferred, and named so a reviewer doesn't have to catch them:
+  the Telegram bot **refuses and logs** unauthorized chats but does not yet
+  rate-limit or alert on them (R7's last clause — a v1.5 hardening); the
+  **Replit spike** (a Day-1 Telegram hello-world) was cut once the real edge
+  function was proven live, so there's no Repl link to show. Both are in the
+  log, not swept under it.
 - Open follow-ups live in the issue tracker; parked ideas in
   [`docs/parking-lot.md`](docs/parking-lot.md). Nothing was silently dropped —
   that rule applied to the project as much as to the pipeline.
