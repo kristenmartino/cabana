@@ -71,7 +71,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ from: 'alerts@mail.kristenmartino.ai', to: ['kristen.e.martino@gmail.com'], subject: '🚨 n8n WORKFLOW FAILED — ' + $('On workflow error').item.json.workflow.name, text: '🚨 n8n WORKFLOW FAILED\\n\\nWorkflow: ' + $('On workflow error').item.json.workflow.name + '\\nNode: ' + ($('On workflow error').item.json.execution.error.node ? $('On workflow error').item.json.execution.error.node.name : 'unknown') + '\\nError: ' + $('On workflow error').item.json.execution.error.message + '\\n\\nExecution: ' + $('On workflow error').item.json.execution.url }) }}",
+        "jsonBody": "={{ JSON.stringify({ from: $env.ALERT_FROM, to: [$env.ALERT_EMAIL], subject: '🚨 n8n WORKFLOW FAILED — ' + $('On workflow error').item.json.workflow.name, text: '🚨 n8n WORKFLOW FAILED\\n\\nWorkflow: ' + $('On workflow error').item.json.workflow.name + '\\nNode: ' + ($('On workflow error').item.json.execution.error.node ? $('On workflow error').item.json.execution.error.node.name : 'unknown') + '\\nError: ' + $('On workflow error').item.json.execution.error.message + '\\n\\nExecution: ' + $('On workflow error').item.json.execution.url }) }}",
         "options": {
           "timeout": 10000
         }

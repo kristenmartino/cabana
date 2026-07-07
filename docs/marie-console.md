@@ -29,7 +29,8 @@ differently.
 Both live on each booking's row (or on its expanded card in the Interface):
 
 1. **Mark completed** — a checkbox. Tick it when a job is done. That's it — the
-   app picks it up, moves the booking to *Completed*, and tells the customer.
+   app picks it up and moves the booking to *Completed*, and the member sees it
+   as completed in their portal.
    *(You can only complete a job that was confirmed. If a box won't "stick," the
    job wasn't ready to complete yet — that's the system protecting the record,
    not a bug.)*
@@ -38,8 +39,11 @@ Both live on each booking's row (or on its expanded card in the Interface):
    locked, left card," "needs a new filter next visit." Type it, click away, it
    saves back to the app.
 
-When you change either one, it takes a few seconds to sync. If a change didn't
-"take," it'll quietly revert — that means the app didn't accept it (see below).
+When you change either one, it takes a few seconds to sync. If the app declines
+a change — say you tick "completed" on a job that isn't confirmed yet — the
+booking's **status won't move**. The checkbox itself may stay ticked, so trust
+the *status*, not the box: if the status didn't change, the app said no (see
+below).
 
 ---
 

@@ -99,7 +99,8 @@ export async function getHomeData(): Promise<HomeData | null> {
     supabase
       .from("bookings")
       .select("id, kind, status, request_text, window, created_at, visit_notes")
-      .order("created_at", { ascending: false }),
+      .order("created_at", { ascending: false })
+      .limit(50), // bound the home lists; the split into open/history happens below
   ]);
 
   const member = memberRes.data;

@@ -64,7 +64,7 @@ export default async function RequestStatus({
         </blockquote>
       )}
 
-      {/* Needs-review holding message (D8: the honest "Dana will text you") */}
+      {/* Needs-review holding message (the honest "Dana will text you") */}
       {req.status === "needs_review" && (
         <section className="mt-5 rounded-2xl bg-card p-5 shadow-card">
           <p className="font-display text-lg font-semibold text-deepwater">
@@ -76,7 +76,21 @@ export default async function RequestStatus({
         </section>
       )}
 
-      {/* Deposit due (Stripe checkout wires in D6) */}
+      {/* The AI-drafted acknowledgment for a qualified request (R2). Shown for
+          any non-review status that carries one — the deposit card follows. */}
+      {req.status !== "needs_review" && req.ackDraft && (
+        <section className="mt-5 rounded-2xl bg-card p-5 shadow-card">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-lagoon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path d="M12 3l2.2 4.9L19.5 9l-3.8 3.4L16.6 18 12 15.3 7.4 18l.9-5.6L4.5 9l5.3-1.1z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+            </svg>
+            Triaged
+          </div>
+          <p className="mt-2 text-[15px] leading-relaxed text-deepwater">{req.ackDraft}</p>
+        </section>
+      )}
+
+      {/* Deposit due */}
       {req.deposit?.due && (
         <section className="mt-5 overflow-hidden rounded-3xl bg-gradient-to-br from-[color-mix(in_oklab,var(--color-coral)_12%,white)] to-[color-mix(in_oklab,var(--color-coral)_22%,white)] p-6 shadow-card ring-1 ring-inset ring-[color-mix(in_oklab,var(--color-coral)_28%,transparent)]">
           {isPaid && req.status === "awaiting_deposit" ? (
