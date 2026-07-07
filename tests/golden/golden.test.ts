@@ -39,7 +39,9 @@ suite("triage golden set", () => {
 
   it(
     "runs all cases",
-    { timeout: 120_000 },
+    // 20 cases run sequentially; with the CI TRIAGE_TIMEOUT_MS bumped to absorb
+    // tail latency, a broadly-slow API window needs headroom past the old 120s.
+    { timeout: 300_000 },
     async () => {
       for (const c of spec.cases) {
         const ctx: MemberContext = { ...spec.default_context, ...c.context_overrides };

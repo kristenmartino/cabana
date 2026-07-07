@@ -55,6 +55,10 @@ jobs:
       - run: npm run test:golden
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Decouple the gate from Anthropic tail latency (#25): the 2s prod SLA
+          # forces fallback on a slow call, which in CI reads as a false routing
+          # regression. Give slow-but-correct classifications room to land.
+          TRIAGE_TIMEOUT_MS: "12000"
 
   db:
     # Migrations + seed + the RLS adversarial suite + the stripe-webhook

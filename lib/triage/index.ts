@@ -17,7 +17,12 @@ import {
 } from "./schema";
 
 export const PROMPT_VERSION = "triage/v2";
-const TIMEOUT_MS = 2000;
+// Production SLA is 2s: a slow model call must fall back to needs_review, not
+// stall the member's intake. CI overrides this (TRIAGE_TIMEOUT_MS) so the
+// golden gate measures the classifier's *routing*, not Anthropic's tail latency
+// on a given day — a slow-but-correct classification would otherwise fall back
+// and read as a routing regression (#25). Unset everywhere but CI.
+const TIMEOUT_MS = Number(process.env.TRIAGE_TIMEOUT_MS) || 2000;
 const MODEL = "claude-haiku-4-5-20251001"; // small-model task by design (ADR-08)
 
 export type TriageOutcome = {
