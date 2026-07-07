@@ -618,3 +618,15 @@ name) — the fix needs an n8n re-import that resets the base id (#19), too risk
 minutes before a take, so it's post-demo. The clean-clone M1 stopwatch run and a
 non-author reviewer walk (DoD §7) remain genuinely undone — a real run, not a
 claim to fake. Traces: R1, R2, R6, R7, R8 / never-cut #4 / pre-v1.0 hardening.
+
+Follow-ups closed on the way out: the operator ran the one-click SQL, so the
+four duplicate "grinding noise" test bookings are gone (demo member reads clean
+now). And #25 — the golden CI flake — is finally fixed at the root, not
+re-run-around: the 2s *production* triage SLA (a slow model call must fall back
+to needs_review, never stall intake) doubled as the golden-set timeout, so
+Anthropic tail latency forced fallbacks the gate misread as routing regressions
+(three false failures now, incl. this PR's own check). Made TIMEOUT_MS
+env-overridable (TRIAGE_TIMEOUT_MS) — unset in prod (stays 2000), 12000 only in
+the CI golden job; routing logic untouched. Confirmed by the gate itself flipping
+17/20 → 20/20 on the same code. The 2s SLA that the chaos/fallback story depends
+on is unchanged. Traces: R2, R8 / closes #25.
