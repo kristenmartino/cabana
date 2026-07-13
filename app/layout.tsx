@@ -10,6 +10,11 @@ const fraunces = Fraunces({
   subsets: ["latin"],
   variable: "--font-fraunces",
   display: "swap",
+  // Fraunces is a variable serif. Loading it as a variable font (no fixed
+  // `weight`) gives the full wght range; the extra `opsz`/`SOFT` axes add
+  // optical sizing and a warmer, softer headline texture at display sizes.
+  style: ["normal", "italic"],
+  axes: ["opsz", "SOFT"],
 });
 
 const inter = Inter({
@@ -27,6 +32,7 @@ export const metadata = {
 export const viewport = {
   width: "device-width",
   initialScale: 1,
+  themeColor: "#F7F2E9",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

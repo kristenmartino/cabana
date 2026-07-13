@@ -17,16 +17,19 @@ export function AppShell({
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-20 border-b border-border/60 bg-background/85 backdrop-blur">
+      <header className="sticky top-0 z-20 border-b border-border/50 bg-background/75 backdrop-blur-md backdrop-saturate-150 supports-[backdrop-filter]:bg-background/65">
         <div className="mx-auto flex max-w-md items-center justify-between px-5 py-3">
-          <Link href="/" className="flex items-center">
+          <Link
+            href="/"
+            className="group flex items-center rounded-lg transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-px"
+          >
             <SailfishLogo />
           </Link>
           {showNav && !isAuth && (
             <form action={signOut}>
               <button
                 type="submit"
-                className="text-xs font-medium text-muted-foreground hover:text-deepwater"
+                className="rounded-lg px-1 text-xs font-medium text-muted-foreground transition-colors duration-200 hover:text-deepwater"
               >
                 Sign out
               </button>
@@ -34,7 +37,7 @@ export function AppShell({
           )}
         </div>
       </header>
-      <main className="mx-auto max-w-md px-5 pb-24 pt-5">{children}</main>
+      <main className="rise mx-auto max-w-md px-5 pb-24 pt-5">{children}</main>
       <footer className="mx-auto max-w-md px-5 pb-8 text-center text-xs text-muted-foreground">
         <p>Sailfish Pool Care · Jupiter, FL · (561) 555-0100</p>
       </footer>

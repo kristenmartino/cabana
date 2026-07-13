@@ -20,6 +20,24 @@
   --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 
+  /* Fluid type scale — clamp(min, preferred-vw, max). Mobile-first, caps on
+     wide screens so the 28rem column never over-scales. */
+  --text-hero: clamp(2rem, 1.4rem + 4.5vw, 2.75rem);   /* sign-in / big moments */
+  --text-h1: clamp(1.75rem, 1.3rem + 2.6vw, 2.125rem);  /* page titles */
+  --text-h2: clamp(1.25rem, 1.05rem + 1.1vw, 1.5rem);   /* section heads */
+  --text-h3: clamp(1.0625rem, 0.98rem + 0.5vw, 1.1875rem);
+  --text-body: clamp(0.9375rem, 0.9rem + 0.2vw, 1rem);
+  --text-label: 0.6875rem;                              /* uppercase labels */
+
+  /* Motion — one calm system. Quart out for entrances, quart in-out for state. */
+  --ease-out-quart: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
+  --ease-back: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --dur-xs: 150ms;
+  --dur-sm: 250ms;
+  --dur-md: 400ms;
+  --dur-lg: 620ms;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -50,6 +68,8 @@
 
   --shadow-card: 0 1px 2px rgba(11, 59, 74, 0.04), 0 8px 24px -12px rgba(11, 59, 74, 0.12);
   --shadow-lift: 0 2px 4px rgba(11, 59, 74, 0.06), 0 16px 40px -16px rgba(11, 59, 74, 0.18);
+  --shadow-hover: 0 3px 6px rgba(11, 59, 74, 0.07), 0 22px 50px -18px rgba(11, 59, 74, 0.22);
+  --shadow-hero: 0 4px 8px rgba(11, 59, 74, 0.08), 0 30px 60px -24px rgba(14, 140, 139, 0.4);
 }
 
 :root {
@@ -89,20 +109,27 @@
 
 @layer base {
   * { border-color: var(--color-border); }
-  html { -webkit-text-size-adjust: 100%; }
+  html {
+    -webkit-text-size-adjust: 100%;
+    color-scheme: light;
+  }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
     font-feature-settings: "ss01", "cv11";
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
   h1, h2, h3, h4 {
     font-family: var(--font-display);
     color: var(--color-deepwater);
     letter-spacing: -0.02em;
     font-weight: 600;
+    font-optical-sizing: auto;
+    text-wrap: balance;
   }
+  p { text-wrap: pretty; }
   :focus-visible {
     outline: 2px solid var(--color-ring);
     outline-offset: 2px;
@@ -118,4 +145,196 @@
   background-position: center;
   background-size: 120px 28px;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 28' fill='none'><path d='M0 14 C 20 2, 40 26, 60 14 S 100 2, 120 14' stroke='%230E8C8B' stroke-opacity='0.35' stroke-width='2' fill='none'/></svg>");
+}
+
+/* White-stroke wave for use on dark/lagoon surfaces (the home hero). */
+@utility wave-divider-light {
+  display: block;
+  width: 100%;
+  height: 28px;
+  background-repeat: repeat-x;
+  background-position: center;
+  background-size: 120px 28px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 28' fill='none'><path d='M0 14 C 20 2, 40 26, 60 14 S 100 2, 120 14' stroke='white' stroke-opacity='0.5' stroke-width='2' fill='none'/></svg>");
+}
+
+/* Animated variant: the wave drifts sideways slowly. Used on the hero + sign-in
+   (the slightly-more-expressive surfaces). Calm — 9s loop, sub-pixel motion. */
+@utility wave-divider-drift {
+  animation: wave-drift 9s linear infinite;
+}
+
+/* ============================================================================
+   Motion system — CSS only. Every animated utility here is neutralised by the
+   single prefers-reduced-motion guard at the bottom of this block.
+   Animations use transform/opacity only (compositor-friendly, 60fps).
+   ============================================================================ */
+
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes rise-in-sm {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes settle {
+  0% { opacity: 0; transform: translateY(10px) scale(0.98); }
+  60% { opacity: 1; }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes pop-in {
+  0% { transform: scale(0); }
+  70% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+@keyframes draw-line {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.06); opacity: 0.85; }
+}
+
+/* Ripple that inherits its owner's color via currentColor — the StatusPill dot
+   expands and fades, drawing the eye to a live state. */
+@keyframes pulse-ring {
+  0% { transform: scale(1); opacity: 0.45; }
+  70% { transform: scale(2.6); opacity: 0; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+
+/* Coral ring for the "current" stepper node. */
+@keyframes pulse-coral {
+  0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-coral) 45%, transparent); }
+  70% { box-shadow: 0 0 0 10px color-mix(in oklab, var(--color-coral) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-coral) 0%, transparent); }
+}
+
+@keyframes shimmer {
+  from { background-position: -180% 0; }
+  to { background-position: 180% 0; }
+}
+
+@keyframes wave-drift {
+  from { background-position-x: 0; }
+  to { background-position-x: 120px; }
+}
+
+/* --- Entrance utilities (on-load) ------------------------------------------- */
+/* Choreography without JS: each entrance utility computes its own delay from an
+   optional --i (stagger index) and --delay (base offset). Set --i on siblings to
+   sequence them; set --delay to hold the whole group until, e.g., the hero lands.
+     --i           stagger index (0,1,2,…), default 0
+     --stagger-step per-index gap, default 70ms
+     --delay        base delay added to all, default 0ms */
+@utility rise {
+  animation: rise-in var(--dur-lg) var(--ease-out-quart) both;
+  animation-delay: calc(var(--delay, 0ms) + var(--stagger-step, 70ms) * var(--i, 0));
+}
+@utility rise-sm {
+  animation: rise-in-sm var(--dur-md) var(--ease-out-quart) both;
+  animation-delay: calc(var(--delay, 0ms) + var(--stagger-step, 70ms) * var(--i, 0));
+}
+@utility settle {
+  animation: settle var(--dur-lg) var(--ease-out-quart) both;
+  animation-delay: calc(var(--delay, 0ms) + var(--stagger-step, 70ms) * var(--i, 0));
+}
+
+/* --- Scroll reveal (view-timeline, progressive enhancement) ----------------- */
+/* Reveals as the element scrolls into view. Browsers without support just show
+   the element — the @supports gate (nested *inside* the utility, since Tailwind
+   v4 forbids nesting @utility) keeps it from ever starting hidden. */
+@utility reveal {
+  @supports (animation-timeline: view()) {
+    animation: rise-in var(--dur-lg) var(--ease-out-quart) both;
+    animation-timeline: view();
+    animation-range: entry 5% cover 22%;
+  }
+}
+
+/* --- Signature motion utilities -------------------------------------------- */
+@utility draw-line {
+  transform-origin: top;
+  animation: draw-line var(--dur-lg) var(--ease-out-quart) both;
+  animation-delay: var(--delay, 0ms);
+}
+@utility breathe {
+  animation: breathe 2.8s var(--ease-in-out-quart) infinite;
+}
+@utility pulse-ring {
+  transform-origin: center;
+  animation: pulse-ring 2.4s var(--ease-out-quart) infinite;
+}
+@utility pulse-coral {
+  animation: pulse-coral 2.4s var(--ease-out-quart) infinite;
+}
+@utility pop-in {
+  animation: pop-in var(--dur-md) var(--ease-back) both;
+  animation-delay: var(--delay, 0ms);
+}
+
+/* Shimmer overlay for the "confirming payment" waiting state. Applies a moving
+   sheen over the element's own background. */
+@utility shimmer {
+  position: relative;
+  overflow: hidden;
+}
+@utility shimmer-sheen {
+  background-image: linear-gradient(
+    100deg,
+    transparent 30%,
+    color-mix(in oklab, white 55%, transparent) 50%,
+    transparent 70%
+  );
+  background-size: 220% 100%;
+  animation: shimmer 1.9s var(--ease-in-out-quart) infinite;
+}
+
+/* Tactile press: buttons dip slightly and lift on hover. Composited. */
+@utility press {
+  transition: transform var(--dur-xs) var(--ease-out-quart),
+    box-shadow var(--dur-sm) var(--ease-out-quart),
+    filter var(--dur-xs) var(--ease-out-quart);
+  will-change: transform;
+}
+@utility press-active {
+  &:active { transform: scale(0.97); }
+}
+
+/* --- View Transitions (cross-page nav) ------------------------------------- */
+/* Native, no config. A soft cross-fade so route changes feel composed, not
+   janky. Guarded by reduced-motion below. */
+@view-transition {
+  navigation: auto;
+}
+::view-transition-old(root) {
+  animation: fade-in var(--dur-sm) var(--ease-out-quart) reverse;
+}
+::view-transition-new(root) {
+  animation: rise-in var(--dur-md) var(--ease-out-quart);
+}
+
+/* --- The single reduced-motion guard --------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  @view-transition { navigation: none; }
 }

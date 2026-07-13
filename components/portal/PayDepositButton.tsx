@@ -31,9 +31,16 @@ export function PayDepositButton({
         type="button"
         onClick={handleClick}
         disabled={pending}
-        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-coral px-4 py-3.5 text-base font-semibold text-coral-foreground shadow-sm transition hover:brightness-95 active:brightness-90 disabled:opacity-60"
+        className="press press-active group relative mt-4 flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-coral px-4 py-3.5 text-base font-semibold text-coral-foreground shadow-card transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-0.5 hover:shadow-hover disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:shadow-card"
       >
-        {pending ? "Opening checkout…" : `Pay $${amount} deposit`}
+        {/* Sheen sweeps across on hover — the tactile cue that this is the action. */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-full group-disabled:hidden"
+        />
+        <span className="relative">
+          {pending ? "Opening checkout…" : `Pay $${amount} deposit`}
+        </span>
       </button>
       {error && <p className="mt-2 text-center text-sm text-destructive">{error}</p>}
     </div>
