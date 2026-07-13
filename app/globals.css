@@ -135,6 +135,13 @@
     outline-offset: 2px;
     border-radius: 6px;
   }
+  /* Branded text selection — a soft lagoon wash with deepwater ink, legible on
+     both the sand background and white cards. The small craft detail that
+     signals every surface was considered. */
+  ::selection {
+    background-color: color-mix(in oklab, var(--color-lagoon) 22%, white);
+    color: var(--color-deepwater);
+  }
 }
 
 @utility wave-divider {

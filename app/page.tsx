@@ -88,7 +88,7 @@ export default async function Home() {
               Your next service
             </p>
             <p
-              className="rise-sm mt-2 font-display text-[length:var(--text-h1)] leading-[1.05] font-bold"
+              className="rise-sm mt-2 font-display text-[length:var(--text-hero)] leading-[1.02] font-bold tracking-[-0.02em]"
               style={{ "--i": 2, "--delay": "180ms" } as CSSVars}
             >
               {nextService.dateLabel}
