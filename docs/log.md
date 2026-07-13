@@ -630,3 +630,36 @@ env-overridable (TRIAGE_TIMEOUT_MS) — unset in prod (stays 2000), 12000 only i
 the CI golden job; routing logic untouched. Confirmed by the gate itself flipping
 17/20 → 20/20 on the same code. The 2s SLA that the chaos/fallback story depends
 on is unchanged. Traces: R2, R8 / closes #25.
+
+## Day 8 (cont.) — Awwwards craft elevation of the member portal (presentation-only)
+
+A full design-craft pass over the four member pages + shared components, held
+strictly inside the ADR-05 fence: no server actions, lib/, RLS, migrations, or
+data/prop shapes touched (git diff is app/*.tsx, app/globals.css, components/**
+only). Register kept deliberately calm/trustworthy — this is a utility portal,
+not a marketing site — so motion is restrained and every animation is gated
+behind a single prefers-reduced-motion guard. Deliberately chose NO Framer
+Motion: React 19 Server Components would force "use client" onto the data pages,
+and ~50kb is disproportionate for this register; went CSS-first instead (scroll-
+driven reveals via animation-timeline, @starting-style, View Transitions, plus
+the already-installed tw-animate-css). No new runtime deps — bundle stayed ~108kb
+First Load JS. globals.css is the leverage: fluid clamp() type scale, easing/
+duration/shadow tokens, and a keyframe+utility motion system (rise/settle/reveal/
+draw-line/breathe/pulse/pop-in/shimmer/press). Home got a layered-gradient hero
+with a drifting wave; request-detail got the signature stepper (connector line
+draws as progress advances, current node breathes, done checks pop); sign-in is
+the one slightly-expressive page; error/404 got branded wave treatments.
+
+Honesty fix caught while reviewing live: the stepper hint was a single past-tense
+string reused across all states, so an upcoming step read "Dana checked it over"
+before she had — a trust-breaking claim in a trust-first UI. Each STEP now carries
+tense-aware copy (todo/current/done) and renders step.hint[state]; milestone
+titles stay fixed (delivery-tracker convention, state shown by node + tag + hint).
+
+Deliberately NOT done: manual browser QA at 375px, the reduced-motion toggle
+walk, and a keyboard-tab focus-ring pass — the guards and :focus-visible are in
+code, but a real human/device run in this environment wasn't possible and is a
+genuine follow-up, not a claim to fake. Verified: typecheck + lint + production
+build all green (build caught one nested @utility in globals.css — Tailwind v4
+forbids it — hoisted the reveal utility with the @supports gate moved inside).
+Traces: R1 / ADR-05 (presentation-only fenced scaffold).
