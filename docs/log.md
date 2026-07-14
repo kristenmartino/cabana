@@ -742,3 +742,17 @@ to keep the shared demo member auto-fresh (a manual `reset_demo_member()` covers
 it until then). Nothing was silently dropped — the honest-notes discipline that
 applied to the pipeline applied to the ship-out too. Traces: all of R1–R8 at
 their recorded acceptance levels · ADR-01…10 · never-cut #1–#5 intact.
+
+## Post-v1.0 — #19 fixed (Airtable base id footgun)
+#19 fixed: the Airtable base id now comes from `$env.AIRTABLE_BASE_ID` in both
+outbox-consumer and reconciliation workflows (matching the OWNER_CHAT_ID and
+TELEGRAM_BOT_TOKEN env pattern), so re-importing a workflow no longer resets it
+to the `__BASE_ID__` placeholder. The footgun was hit during the #23 re-import
+when the Airtable URL silently reverted to hardcoded placeholder → 404 until
+manually edited inline. Non-secret base id (it is a URL path component — still
+committed in the chaos README, and formerly hardcoded in reconciliation.json
+before this fix); one-time instance-env set on
+Railway → Variables and it survives every re-import. Two JSON edits (both URL
+fields now use `{{ $env.AIRTABLE_BASE_ID }}` expression syntax), three doc
+updates (.env.example, ops/n8n/README.md runbook, this entry). Traces: R6 /
+ADR-01 / closes #19.

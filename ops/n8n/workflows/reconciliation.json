@@ -82,7 +82,7 @@
       ],
       "parameters": {
         "method": "GET",
-        "url": "https://api.airtable.com/v0/appqBebMTUb0qsB1f/Bookings?pageSize=100&fields%5B%5D=id",
+        "url": "=https://api.airtable.com/v0/{{ $env.AIRTABLE_BASE_ID }}/Bookings?pageSize=100&fields%5B%5D=id",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "options": {
