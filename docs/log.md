@@ -502,8 +502,8 @@ dead_letters row + alert but leaves processed_at null, so the sweep re-retries
 forever: rows hit attempts 19-22 (threshold 5) and 798 duplicate dead-letter
 rows piled up with repeated alerts. M3 held regardless (nothing lost, nothing
 silent — louder than intended, if anything), but the semantics are wrong; fix
-is a dead_lettered_at column + sweep filter (migration 0016), filed with a
-redrive runbook note. Two smaller run-day fixes landed on main: the ws
+is a dead_lettered_at column + sweep filter (landed as migration 0018 — 0016/0017
+went to the demo slice), filed with a redrive runbook note. Two smaller run-day fixes landed on main: the ws
 transport for Node 20 (same fix the RLS helper used — supabase-js demands a
 WebSocket at construction) and A4 scoping to non-null session ids (seed
 fixtures predate Stripe wiring; skipped count stated in the log, nothing
@@ -512,6 +512,20 @@ fallback fired correctly when the outage aged rows past 300s — the monitoring
 stack watched the chaos in real time. Traces: R5, R8 / M2, M3 / never-cut #3,
 #5 / Gate 3a CLOSED. Remaining: Slice 5 — README + failure-modes, Loom,
 Vercel postmortem, Claude Desktop hour, tag v1.0.
+
+## Day 7 (cont.) — #23 DLQ terminal (closed)
+The chaos run found a real design flaw: dead-letter is not terminal (line 499–509
+above). The fix went into 0018 (append-only): `outbox.dead_lettered_at`
+(timestamptz, nullable) signals terminal DLQ state. The sweep now terminates when
+`processed_at IS NOT NULL` (delivered) OR `dead_lettered_at IS NOT NULL` (dead).
+n8n consumer inserts the dead_letters diagnostic FIRST, then marks the outbox
+row dead_lettered (Dead-letter → Mark dead-lettered), so the diagnostic is
+durably recorded before the row goes terminal — and it stops re-retrying. Redrive is manual + explicit: operator clears dead_lettered_at
+and resets attempts to 0 to re-queue. The dead-letter INSERT + alert remain
+(diagnostics); we only ADD terminality so the row stops looping. The chaos A2
+assertion (103 rows, 43 dead-lettered) is unaffected — it detects dead-letter
+via the dead_letters join (additive), not the new column. Traces: R5 / ADR-02 /
+never-cut #3 / closes #23.
 
 ## Day 8 — Slice 5: the ship-out artifacts, fact-checked into honesty
 The v1.0 reviewer surface: README rewritten from the stale Day-0 version to

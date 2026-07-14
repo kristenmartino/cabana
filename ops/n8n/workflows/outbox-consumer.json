@@ -62,6 +62,10 @@
               "value": "is.null"
             },
             {
+              "name": "dead_lettered_at",
+              "value": "is.null"
+            },
+            {
               "name": "order",
               "value": "id.asc"
             },
@@ -420,6 +424,54 @@
           "name": "Supabase service role"
         }
       }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://uuviebpmiwzjyabucheo.supabase.co/rest/v1/outbox",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "=eq.{{ $('Prepare failure').item.json.outbox_id }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ dead_lettered_at: new Date().toISOString() }) }}",
+        "options": {}
+      },
+      "id": "11111111-1111-4111-8111-111111111114",
+      "name": "Mark dead-lettered",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1780,
+        120
+      ],
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "REPLACE_WITH_SUPABASE_CRED_ID",
+          "name": "Supabase service role"
+        }
+      }
     }
   ],
   "connections": {
@@ -557,6 +609,17 @@
           }
         ],
         []
+      ]
+    },
+    "Dead-letter": {
+      "main": [
+        [
+          {
+            "node": "Mark dead-lettered",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   }
