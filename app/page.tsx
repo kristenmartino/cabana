@@ -3,15 +3,30 @@ import Link from "next/link";
 import { AppShell } from "@/components/sailfish/AppShell";
 import { StatusPill } from "@/components/sailfish/StatusPill";
 import { AccessNotesCard } from "@/components/portal/AccessNotesCard";
+import { Landing } from "@/components/marketing/Landing";
 import { getHomeData } from "@/lib/portal/data";
+import { createClient } from "@/lib/supabase/server";
 
 // Allows custom CSS variables (--i, --delay, --stagger-step) in inline styles
 // to drive the CSS-only stagger/reveal choreography without a JS animation lib.
 type CSSVars = CSSProperties & Record<`--${string}`, string | number>;
 
 export default async function Home() {
-  const data = await getHomeData();
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
 
+  const data = user ? await getHomeData() : null;
+
+  // Unauthenticated: show public landing page
+  if (!user) {
+    return (
+      <AppShell showNav={false}>
+        <Landing />
+      </AppShell>
+    );
+  }
+
+  // Authenticated: show member portal
   if (!data) {
     return (
       <AppShell>

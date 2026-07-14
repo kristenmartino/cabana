@@ -72,7 +72,7 @@ Prereqs: Node 20+, Docker, [Supabase CLI](https://supabase.com/docs/guides/cli).
 ```bash
 npm install
 supabase start
-supabase db reset           # migrations 0001–0015 + seed.sql: a full demo world
+supabase db reset           # migrations 0001–0017 + seed.sql: a full demo world
 cp .env.example .env.local  # fill the Supabase block from `supabase start` output
 npm run dev                 # http://localhost:3000
 ```
@@ -92,11 +92,13 @@ printf 'STRIPE_SECRET_KEY=sk_test_...\nSTRIPE_WEBHOOK_SECRET=whsec_...\n' > supa
 stripe listen --forward-to http://127.0.0.1:54321/functions/v1/stripe-webhook
 ```
 
-**Live demo:** the portal is member-gated by design (R1) — a stranger at the
-prod URL sees only the sign-in gate and, for a non-member email, a polite dead
-end (no account, no error page). So the demo is the 90-second
-[Loom](docs/loom-script.md) and a local run, not an open link. Architecture at
-a glance lives in [`docs/02-architecture.md`](docs/02-architecture.md).
+**Live demo:** the app is publicly accessible with a one-click demo session
+(ADR-10). The landing at `/` shows a public Sailfish Pool Care page; "Enter the
+demo" creates a real authenticated session for Ken Alvarez (seeded fictional
+member, id a1000000...), so reviewers see the app live with RLS applied
+identically to a real member. Stripe is test-mode; intake is IP-rate-limited
+for demo only (real members never throttled). A non-member email on sign-in
+gets a polite dead end. Architecture at a glance lives in [`docs/02-architecture.md`](docs/02-architecture.md).
 
 ## Testing
 
@@ -142,7 +144,8 @@ hundred requests.
 ```
 docs/                 discovery → PRD → architecture → ADRs → build plan · execution plan · log
 supabase/migrations/  0001–0006 schema/outbox/RLS · 0008 transition_booking · 0012 member intake
-                      0013 apply_triage · 0014 deposit expiry · 0015 get_schedule (15 total)
+                      0013 apply_triage · 0014 deposit expiry · 0015 get_schedule
+                      0016 rate_limit · 0017 reset_demo_member (17 total)
 supabase/seed.sql     the demo world (fixed UUIDs, a booking in every status)
 supabase/functions/   stripe-webhook · telegram-webhook (/today /week /cancel /brief) · airtable-writeback
 lib/triage/           zod schema + routing policy · Haiku caller (2s budget, temp 0, fallback-first)

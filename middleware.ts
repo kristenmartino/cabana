@@ -34,16 +34,15 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // The whole portal is members-only; only /sign-in, the auth callback, and
-  // ops health endpoints are public (n8n's health-check runs from Railway with
-  // no member cookie; keeping /api/health cookie-less avoids a whole class of
-  // "auth expired, monitor lied about health" bugs). Unauthenticated visitors
-  // land on sign-in (R1). /api/health returns no PII — only aggregate counts
-  // + seconds — so leaving it uncookied is safe.
+  // Public routes: "/" (landing + demo), /sign-in, auth callback, and ops health.
+  // The landing (/) shows a public landing page for unauthenticated visitors and
+  // the member portal for signed-in members. /api/health is uncookied for n8n
+  // health-checks (no member cookie → no auth expired / health lied race).
   const path = request.nextUrl.pathname;
   const isPublic =
+    path === "/" ||
     path === "/sign-in" ||
-    path.startsWith("/auth") ||
+    path.startsWith("/auth/") ||
     path === "/api/health";
 
   if (!user && !isPublic) {

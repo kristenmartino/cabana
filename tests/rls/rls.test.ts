@@ -288,6 +288,50 @@ describe("RLS: member isolation (three-fixture adversarial suite)", () => {
     expect(anonErr!.code).toBe("42501");
   });
 
+  it("demo member (Ken) reads own bookings, property, and membership; Priya's are invisible", async () => {
+    // Verify Ken (the demo member) can access his own data.
+    const { data: kenBookings, error: bookingErr } = await A.from("bookings").select("id, member_id");
+    expect(bookingErr).toBeNull();
+    expect(kenBookings).toHaveLength(2);
+    for (const booking of kenBookings!) {
+      expect(booking.member_id).toBe(KEN.memberId);
+    }
+
+    // Verify Ken's property is visible.
+    const { data: kenProperties, error: propErr } = await A.from("properties").select("id, member_id");
+    expect(propErr).toBeNull();
+    expect(kenProperties!.map((p) => p.id)).toEqual([KEN.propertyId]);
+
+    // Verify Ken's membership is visible.
+    const { data: kenMemberships, error: memErr } = await A.from("memberships").select("member_id");
+    expect(memErr).toBeNull();
+    expect(kenMemberships!.map((m) => m.member_id)).toEqual([KEN.memberId]);
+
+    // Verify Ken's payments are visible.
+    const { data: kenPayments, error: payErr } = await A.from("payments").select("id");
+    expect(payErr).toBeNull();
+    expect(kenPayments!.map((p) => p.id)).toEqual([KEN.paymentId]);
+
+    // Cross-member isolation: target probes at Priya's rows — all return empty, not errors.
+    const { data: priyaBookings, error: priyaBookingErr } = await A.from("bookings")
+      .select("id")
+      .eq("member_id", PRIYA.memberId);
+    expect(priyaBookingErr).toBeNull();
+    expect(priyaBookings).toEqual([]);
+
+    const { data: priyaProperty, error: priyaPropErr } = await A.from("properties")
+      .select("id")
+      .eq("member_id", PRIYA.memberId);
+    expect(priyaPropErr).toBeNull();
+    expect(priyaProperty).toEqual([]);
+
+    const { data: priyaMembership, error: priyaMemErr } = await A.from("memberships")
+      .select("member_id")
+      .eq("member_id", PRIYA.memberId);
+    expect(priyaMemErr).toBeNull();
+    expect(priyaMembership).toEqual([]);
+  });
+
   it("anon (signed out) reads nothing from any table", async () => {
     const anon = anonClient();
     for (const table of [...MEMBER_VISIBLE_TABLES, ...SERVICE_ONLY_TABLES]) {

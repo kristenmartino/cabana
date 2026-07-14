@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { AppShell } from "@/components/sailfish/AppShell";
-
-const SUPPORT = { name: "Dana", phone: "(561) 555-0100" };
+import { SUPPORT } from "@/lib/brand";
 
 // Branded 404 — a stale or unknown /request/<id> (e.g. a link to a booking
 // that no longer exists) should land here, not on Next's default page.
