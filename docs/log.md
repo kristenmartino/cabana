@@ -797,3 +797,47 @@ Airtable's automation runtime doesn't expose the prior free-text value to restor
 so reverting it would be guesswork. Docs-only; no app/edge-fn/migration change;
 the write-back whitelist stays exactly {`visit_notes`, `mark_completed`}. Traces:
 R6 / ADR-01 / closes #21.
+
+## Post-v1.0 — health probe made leg-aware (a #20 straggler)
+
+The n8n health-check kept alerting: `/api/health` was returning 503. Diagnosed
+against live cloud data — two `booking.created` rows had delivered to Airtable
+(`airtable_delivered_at` set) but their Telegram owner-ping leg was hitting the
+recurring Railway→Telegram `ETIMEDOUT` (149.154.166.110 = Telegram's API), so
+under the 0019 completion trigger they never reached `processed_at`, aged past
+300s, and pinned the probe red (old_oldest_secs=682). The root cause was NOT the
+Telegram flake itself (that's tolerable by design — #20) but that `/api/health`
+still defined "backing up" as `processed_at IS NULL`, from before #20 split the
+legs and #23 made dead-lettering terminal. So a best-effort leg the decouple
+explicitly allowed to fail was re-coupled at the health layer, and a dead-letter
+(now terminal) would have pinned it red forever. Fix: the 503 signal now keys on
+the genuine backlog — `processed_at IS NULL AND dead_lettered_at IS NULL AND
+airtable_delivered_at IS NULL` (rows still owed their Airtable projection, not
+given up on) — the set that actually grows when the consumer is down, the DB
+webhook is broken, or Airtable is unreachable. `telegram_pending` and
+`dead_lettered` are now reported in the payload for visibility but never trip the
+probe; a persistent Telegram outage still reaches Dana via the dead-letter email
+fallback (Slice-2c), not a stuck health signal. Adversarial verify (4 lenses,
+query-correctness + contract PASS) caught that naively excluding the whole
+Telegram-pending set would REGRESS R8: if the Telegram *ping* succeeds but the
+follow-on "Mark telegram delivered" PATCH fails, `attempts` (incremented only on
+the ping's own error path) never reaches 5, the row never dead-letters, and it'd
+be silently stuck-but-green forever. Closed with a generous Telegram-leg age
+backstop (`telegram_oldest_seconds > 1800` → 503): normal flaking dead-letters at
+~5 min so it never nears 30 min, but a wedged leg trips. Known limitation
+(documented, pre-existing, not a regression): a manually redriven row re-enters
+with its original `created_at`, so a fresh redrive can briefly read as old until
+it resolves. Validated against live data: old probe → 503 (oldest 682s), new
+probe → 200 (backlog 0, telegram_pending 2, telegram_oldest 1249s < 1800).
+Surprise surfaced while diagnosing: the two stuck rows had `attempts` frozen at 1
+for 20+ min — on a live 60s sweep they'd have climbed to 5 and dead-lettered, so
+the Railway outbox-consumer wasn't sweeping (inactive after the #20 re-import).
+That's operational, not code; the probe fix is right regardless (and the backstop
+will correctly 503 if those rows stay wedged past 30 min).
+chaos already used the not-processed-AND-not-dead-lettered definition (run.ts),
+so this only brings the probe into line; no test asserted on /api/health.
+Deliberately NOT done: no manual clearing of the two stuck rows — the outbox
+stays authoritative (never-cut #3); they retry then dead-letter (→ email alert)
+or recover on their own. Operational note: the Railway→Telegram ETIMEDOUT is
+infra (Railway egress ↔ Telegram), not app code — worth watching if owner pings
+go quiet. Traces: R5 / R8 / ADR-02 (delivery legs) / never-cut #3, #5 / follows #20.

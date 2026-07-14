@@ -283,7 +283,7 @@ The table a reviewer should read first. "Detection" is the column amateurs leave
 ## 7. Observability (right-sized for one operator)
 
 No Grafana stack for a 3-tech pool company. Observability = the structures above plus:
-- **Health:** a `/api/health` endpoint (DB reachable, outbox depth, oldest unprocessed age) that n8n checks q5min and alerts on.
+- **Health:** a `/api/health` endpoint (DB reachable; outbox *backlog* depth + oldest age) that n8n checks q5min and alerts on. Since #20 decoupled the delivery legs, the 503 signal keys on the genuine backlog — rows still owed their Airtable projection and not yet dead-lettered — so a flaky/dead Telegram owner-ping leg doesn't pin the probe red (that failure surfaces via the dead-letter email alert instead). `telegram_pending` and `dead_lettered` are reported for visibility; a Telegram leg only trips 503 if it stays wedged far past its dead-letter window (>30 min), a backstop against a leg that never advances to dead-letter.
 - **Money path evidence:** every payment row joins to a stored, verified Stripe event.
 - **AI evidence:** `ai_events` is queryable for cost/latency/outcome trends; a `views/ai_daily` rollup feeds `/brief`.
 - **Human-facing:** Dana's Telegram is the pager. Alert design rule: every alert states what happened, what the system already did, and whether a human must act.
