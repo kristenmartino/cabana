@@ -709,3 +709,22 @@ the demo session + rate limit; README updated to replace "Loom + local" with the
 live landing reality. Did NOT do: golden-set injection tests for demo access,
 per-visitor demo members (all reviewers share Ken — the reset covers pollution),
 and live Stripe (stays test mode). Traces: ADR-10, R1/R2 amendments, never-cut #4 (fail OPEN).
+
+## v1.0 — tagged
+Cut the `v1.0` tag. What ships: the full spine (member intake → Haiku triage →
+webhook-authoritative Stripe deposit → Telegram one-tap approve → Airtable
+projection → transactional outbox), gates 1/2/3a closed with committed evidence
+(chaos run cx20260706T2052: 0 lost / 0 duplicated across 50 bookings), the RLS/
+webhook/golden/DST suites green in CI, and — new since the original ship-out
+plan — a **live, clickable public demo**: the landing + one-click demo session
+(0016–0017, ADR-10) is deployed and the cloud project has the migrations applied
+and Ken reset to the canonical world (verified end-to-end: enter demo → his
+portal with the awaiting-deposit CTA). That live demo supersedes the Loom as the
+primary "see it work" artifact, which is why the tag isn't gated on it. Honest
+tail, deliberately not release gates: the 90-second **Loom** and the timed
+**Claude Desktop hour** remain optional follow-up assets (nice-to-have polish,
+not correctness); the n8n `demo-reset` workflow still needs importing on Railway
+to keep the shared demo member auto-fresh (a manual `reset_demo_member()` covers
+it until then). Nothing was silently dropped — the honest-notes discipline that
+applied to the pipeline applied to the ship-out too. Traces: all of R1–R8 at
+their recorded acceptance levels · ADR-01…10 · never-cut #1–#5 intact.

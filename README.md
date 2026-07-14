@@ -15,8 +15,11 @@ that **no side effect is ever silently dropped**.
 Stack: Next.js 15 (Vercel) · Supabase (Postgres/Auth/RLS/Edge Functions) ·
 Stripe · n8n (Railway) · Airtable · Telegram Bot API · Claude Haiku · Resend.
 
-**Status: gates 1, 2, and 3a (chaos) closed — every claim below links to
-committed evidence. v1.0 ship-out (Loom, Claude Desktop hour, tag) in flight.**
+**Status: `v1.0` — tagged.** Gates 1, 2, and 3a (chaos) are closed, every claim
+below links to committed evidence, and the portal is **live with a one-click
+public demo** — enter as a seeded member (fictional data, Stripe in test mode),
+no sign-up. A walkthrough Loom and the Claude Desktop hour are optional
+follow-up assets, not release gates.
 Built across Days 0–8 by one engineer pairing with Claude Code; the daily
 narrative (decisions, surprises, incidents, deliberate omissions) is
 [`docs/log.md`](docs/log.md).
