@@ -123,11 +123,9 @@ backoff + a DLQ + the instance error workflow, which closes the double-ping.
 - `TELEGRAM_BOT_TOKEN` — the BotFather token, used in the sendMessage URL.
 - `OWNER_CHAT_ID` — the owner's numeric Telegram chat id (kept out of the repo).
 
-**One in-JSON placeholder:** `__BASE_ID__` in the Airtable node URL → replace
-with your Airtable base id (`app…`) after import.
-
-The committed `outbox-consumer.json` must contain **no real keys, tokens, base
-ids, or chat ids**.
+The committed `outbox-consumer.json` and `reconciliation.json` must contain **no real keys, tokens,
+base ids, or chat ids** — both workflows now read the Airtable base id from `$env.AIRTABLE_BASE_ID`,
+set once as an n8n instance env var.
 
 ---
 
@@ -166,16 +164,16 @@ Cloud endpoints (already provisioned — ADR-09):
 2. **Import the workflow into n8n.** In n8n → *Workflows* → *Import from File* →
    `ops/n8n/workflows/outbox-consumer.json`.
 
-3. **Set up n8n auth: two credentials + two env vars.**
+3. **Set up n8n auth: two credentials + five env vars.**
    - Credential `Supabase service role` — type **Custom Auth**, JSON:
      `{"headers":{"apikey":"<SERVICE_ROLE_KEY>","Authorization":"Bearer <SERVICE_ROLE_KEY>"}}`
      (the 5 Supabase nodes use `httpCustomAuth`; one header isn't enough — the
      gateway needs `apikey`, PostgREST needs `Authorization`).
    - Credential `Airtable PAT` — type **Header Auth**, `Authorization: Bearer <PAT>`.
-   - In the **Airtable upsert** node, replace `__BASE_ID__` in the URL with the
-     base id from step 1.
-   - On the Railway n8n service → *Variables*, set **four** env vars, then let it
+   - On the Railway n8n service → *Variables*, set **five** env vars, then let it
      redeploy:
+     - `AIRTABLE_BASE_ID` — your Airtable base id (`app…`). Both outbox-consumer and
+       reconciliation workflows read `$env.AIRTABLE_BASE_ID`, so re-imports no longer reset it to a placeholder.
      - `TELEGRAM_BOT_TOKEN` — BotFather token (Telegram ping URL reads it via `$env`).
      - `OWNER_CHAT_ID` — owner's numeric chat id (Build actions reads it via `$env`).
      - `N8N_ENCRYPTION_KEY` — a fixed random value (`openssl rand -hex 32`).
