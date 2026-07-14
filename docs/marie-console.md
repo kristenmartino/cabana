@@ -31,9 +31,8 @@ Both live on each booking's row (or on its expanded card in the Interface):
 1. **Mark completed** — a checkbox. Tick it when a job is done. That's it — the
    app picks it up and moves the booking to *Completed*, and the member sees it
    as completed in their portal.
-   *(You can only complete a job that was confirmed. If a box won't "stick," the
-   job wasn't ready to complete yet — that's the system protecting the record,
-   not a bug.)*
+   *(You can only complete a job that was confirmed. When the app says no, the
+   box clears itself — that's the system keeping the record safe, not a bug.)*
 
 2. **Visit notes** — a text box. Anything the office should keep: "gate was
    locked, left card," "needs a new filter next visit." Type it, click away, it
@@ -41,9 +40,8 @@ Both live on each booking's row (or on its expanded card in the Interface):
 
 When you change either one, it takes a few seconds to sync. If the app declines
 a change — say you tick "completed" on a job that isn't confirmed yet — the
-booking's **status won't move**. The checkbox itself may stay ticked, so trust
-the *status*, not the box: if the status didn't change, the app said no (see
-below).
+booking's **status won't move**, and the checkbox clears itself. The status is
+always right; the box now confirms it.
 
 ---
 
@@ -66,8 +64,8 @@ honest.
 ## When something looks off
 
 - **A change didn't stick** → the app declined it (e.g. you tried to complete a
-  job that wasn't confirmed yet). Check the job's status; if it looks wrong,
-  text Dana.
+  job that wasn't confirmed yet). Check the status; the box should have cleared
+  itself. If it looks wrong, text Dana.
 - **A job is missing** → check you're on the right view (a completed job leaves
   *Today* and shows up in *Recently Completed*).
 - **Anything else** → text Dana. Nothing you do here can break the system — the

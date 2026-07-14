@@ -778,3 +778,22 @@ so the additive columns don't change its pass/fail; A1 (Airtable exactly-once)
 holds — the upsert is still idempotent. Verified: db reset applies 0019 and the
 trigger fires correctly (one leg → `processed_at` null; second leg → stamped;
 never clears). Traces: R5 / ADR-02 amendment / never-cut #3 / closes #20.
+
+## Post-v1.0 — #21 fixed (Airtable mark_completed auto-revert)
+
+Fixed #21: the Airtable `mark_completed` automation now reverts the checkbox when
+the edge function declines (e.g. a 409 on a booking that isn't `confirmed`),
+keeping the console honest with the app per ADR-01 (Airtable is a projection; the
+display must reflect the app's truth). The corrected automation script had lived
+only in Airtable's UI — now captured under version control in
+`docs/airtable-writeback-automation.md` (applied once via the Airtable UI,
+automated thereafter) — and `marie-console.md`'s promise is honest again: the box
+clears itself when the app says no, reversing the earlier "may stay ticked, trust
+the status" hedge that Day-6 had written to match the then-broken behavior. No
+loop: the revert re-fires the automation once with `value:false` → the edge fn
+returns 200 "ignored" → clean exit (one extra, harmless invocation). Deliberately
+NOT done: `visit_notes` stays un-reverted — its failures are rare (404 only) and
+Airtable's automation runtime doesn't expose the prior free-text value to restore,
+so reverting it would be guesswork. Docs-only; no app/edge-fn/migration change;
+the write-back whitelist stays exactly {`visit_notes`, `mark_completed`}. Traces:
+R6 / ADR-01 / closes #21.

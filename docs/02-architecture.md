@@ -251,7 +251,7 @@ State change and outbox row commit atomically. n8n receives a low-latency nudge 
 
 ### 4c. Airtable write-back (the fenced exception)
 
-Marie marks a job completed or edits visit notes in the Interface → Airtable automation calls `airtable-writeback` edge fn with a shared secret → edge fn validates field is whitelisted, applies to Supabase, records in `sync_log` and `booking_transitions` (actor `office:airtable`) → normal outbox flow re-projects to Airtable, converging both sides. Any non-whitelisted edit is overwritten by the next sync and logged. Two-way sync as a general capability is explicitly rejected (ADR-01).
+Marie marks a job completed or edits visit notes in the Interface → Airtable automation calls `airtable-writeback` edge fn with a shared secret → edge fn validates field is whitelisted, applies to Supabase, records in `sync_log` and `booking_transitions` (actor `office:airtable`) → normal outbox flow re-projects to Airtable, converging both sides. Any non-whitelisted edit is overwritten by the next sync and logged. A *rejected* whitelisted write-back (e.g. `mark_completed` on a booking that isn't `confirmed` → 409) reverts the Airtable field, so the console shows the app's refusal instead of silently diverging — the revert lives in the Airtable-side automation (see `docs/airtable-writeback-automation.md`), not app code. Two-way sync as a general capability is explicitly rejected (ADR-01).
 
 ## 5. AI subsystem (bounded on purpose)
 
