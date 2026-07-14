@@ -663,3 +663,49 @@ genuine follow-up, not a claim to fake. Verified: typecheck + lint + production
 build all green (build caught one nested @utility in globals.css — Tailwind v4
 forbids it — hoisted the reveal utility with the @supports gate moved inside).
 Traces: R1 / ADR-05 (presentation-only fenced scaffold).
+
+## Day 8 (cont.) — Top-design audit + three register-safe wins
+
+Ran the shipped portal through the top-design (Awwwards) rubric as an audit, not
+a rebuild. Scored 7.4/10 on a rubric tuned for expressive marketing sites — but
+this is a calm, trust-first mobile utility, so several "misses" (viewport-filling
+type, custom cursor, Lenis smooth-scroll) are correct decisions, not gaps. Kept
+those out deliberately. Implemented only the three findings that transfer without
+betraying the register: (1) a branded ::selection wash (lagoon 22% on deepwater
+ink, legible on both sand and white); (2) bumped the home hero date — the "your
+pool is handled" focal number — from --text-h1 to --text-hero with tighter
+tracking, the one place more type-drama is on-brief (dark lagoon surface, the
+reassurance moment); (3) verified StatusPill tone contrast rather than assuming
+the earlier blindspot fix held — computed WCAG ratios from the actual OKLCH +
+color-mix values: all five tones clear AA for normal text (deposit lowest at
+6.20:1), so no change needed. Two files touched (globals.css, app/page.tsx),
+still presentation-only inside the ADR-05 fence, no new deps, bundle unchanged at
+~108kb. Verified: typecheck + lint + production build green.
+Traces: R1 / ADR-05 (presentation-only fenced scaffold).
+
+## Demo landing + rate-limit layer
+
+Public landing + one-click demo session (ADR-10): "/" now branches on auth —
+unauthenticated visitors see a Sailfish Pool Care landing with "Enter the demo"
+CTA, signed-in members see the portal. Demo uses the pre-seeded Ken Alvarez
+member (a1000000...) with a real authenticated session (not an auth bypass) so
+RLS applies identically to a real member; reviewers see the app live with all
+guardrails intact. Migrations 0016–0017: check_rate_limit RPC for demo intake
+throttling (fails OPEN, never blocks legitimate requests — never-cut #4); the
+rate-limit table is demo-only, real members untouched (G1 zero-lost-intake
+preserved). Service-role enterDemo() action mints a REAL session server-side: it
+idempotently creates/links the demo auth user, calls
+admin.auth.admin.generateLink, then verifies the token on the cookie-bound SSR
+client (verifyOtp) so auth cookies are actually written — a genuine RLS-scoped
+Ken session, one click from the visitor. (First pass redirected to the raw
+action_link, which sets no server session; the adversarial verify caught it.)
+Middleware now allows "/" public; brand.ts exports SUPPORT contact + DEMO
+constants; the landing carries an honest "fictional data · Stripe test mode"
+line. Demo state is kept fresh by an AUTOMATED reset: reset_demo_member() (0017),
+a service-role RPC driven by ops/n8n/workflows/demo-reset.json every 30 min,
+re-seeds Ken's canonical bookings with a fresh deposit hold that outlives the 24h
+expiry sweep. ADR-10 documents the design; R1/R2 acceptance criteria amended for
+the demo session + rate limit; README updated to replace "Loom + local" with the
+live landing reality. Did NOT do: golden-set injection tests for demo access,
+per-visitor demo members (all reviewers share Ken — the reset covers pollution),
+and live Stripe (stays test mode). Traces: ADR-10, R1/R2 amendments, never-cut #4 (fail OPEN).

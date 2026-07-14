@@ -4,10 +4,9 @@ import { useState, useTransition } from "react";
 import { AppShell } from "@/components/sailfish/AppShell";
 import { WaveDivider } from "@/components/sailfish/Logo";
 import { sendMagicLink } from "./actions";
+import { SUPPORT } from "@/lib/brand";
 
 type CSSVars = CSSProperties & Record<`--${string}`, string | number>;
-
-const SUPPORT = { name: "Dana", phone: "(561) 555-0100" };
 const telHref = `tel:${SUPPORT.phone.replace(/[^\d]/g, "")}`;
 
 export default function SignIn() {

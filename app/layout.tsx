@@ -24,9 +24,9 @@ const inter = Inter({
 });
 
 export const metadata = {
-  title: "Sailfish Pool Care — Member Portal",
+  title: "Sailfish Pool Care",
   description:
-    "Your Sailfish Pool Care member portal — check your next service, report a problem, and stay in touch with Dana's team in Jupiter, Florida.",
+    "Request service, track repairs in real time, and manage your pool service online. Your Sailfish Pool Care member portal.",
 };
 
 export const viewport = {

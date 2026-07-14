@@ -11,9 +11,11 @@
 // suitable for needs_review (the fallback path).
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { triageIntake, type MemberContext } from "@/lib/triage";
+import { DEMO_MEMBER_ID } from "@/lib/brand";
 
 export async function submitRequest(
   text: string,
@@ -29,6 +31,45 @@ export async function submitRequest(
   const property = props?.[0];
   if (!member || !property) {
     return { ok: false, message: "We couldn't find your account. Try signing in again." };
+  }
+
+  // Rate-limit demo member intake requests (6 per 600-second window).
+  // Real members (paying customers) are never throttled (G1: zero-lost-intake).
+  if (member.id === DEMO_MEMBER_ID) {
+    try {
+      const admin = createAdminClient();
+      const headersList = await headers();
+      // x-real-ip is set by the Vercel proxy to the TRUE client IP. Do not trust
+      // the leftmost x-forwarded-for value — it is client-supplied and spoofable
+      // (a caller can prepend a random IP to mint a fresh bucket every request).
+      // Fall back to the RIGHTMOST forwarded hop, which the platform appended.
+      const realIp = headersList.get("x-real-ip")?.trim();
+      const forwardedFor = headersList.get("x-forwarded-for");
+      const xffTrusted = forwardedFor
+        ? forwardedFor.split(",").map((s) => s.trim()).filter(Boolean).pop()
+        : undefined;
+      const clientIp = realIp || xffTrusted || "unknown";
+
+      const { data: allowed, error: limiterError } = await admin.rpc("check_rate_limit", {
+        p_key: `intake:${clientIp}`,
+        p_max: 6,
+        p_window_seconds: 600,
+      });
+
+      if (limiterError) {
+        // Fail open on error: log and continue.
+        console.error("check_rate_limit error (failing open)", limiterError);
+      } else if (allowed === false) {
+        // Throttled: return rate-limit message.
+        return {
+          ok: false,
+          message: "You're going a little fast for the demo — give it a moment and try again.",
+        };
+      }
+    } catch (err) {
+      // Fail open on any error (network, parse, etc.): log and continue.
+      console.error("rate-limit guard error (failing open)", err);
+    }
   }
 
   const admin = createAdminClient();

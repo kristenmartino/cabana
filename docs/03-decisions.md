@@ -161,3 +161,48 @@ portfolio cycle to stop billing. The D7 health-check keep-warm still ships
 callers authenticate via Stripe signature / Telegram secret token / shared
 secret (ADR-03/07/01). Local config: `[functions.*] verify_jwt = false`;
 cloud deploys must match (`--no-verify-jwt` or MCP `verify_jwt: false`).
+
+---
+
+## ADR-10 — Public landing + programmatic demo-member session + intake rate-limit
+
+**Context:** A demo that requires a Loom + local-run instructions is hard to
+reach and doesn't show the actual system running. A public landing with
+one-click demo access (a real pre-seeded fictional-member session, not an auth
+bypass) serves the portfolio goal — reviewers see the live app — while every
+guardrail (RLS, deposit requirement, message rate limiting for demo) holds.
+
+**Options:**
+- **A. Keep it member-gated only (Loom + local).** Honest on guardrails, harder to
+  evaluate interactively; the system's credibility depends on video.
+- **B. Public landing + demo session as anonymous auth.** Fast to build, breaks
+  RLS (anonymous can read members' data if RLS isn't "read: false for anon"),
+  violates never-cut #1 (RLS is the boundary).
+- **C. Public landing + real pre-seeded auth session for a fictional demo member
+  (Ken Alvarez, seeded ID a1000000...). RLS applies to the demo session
+  identically to a real member. Intake rate-limited per IP (prevents abuse,
+  cost control). Stripe stays test mode. Landing and demo-login become public;
+  everything else member-gated (auth middleware).
+
+**Decision:** C. The demo session is structurally identical to a real member
+session — it owns Ken's pre-seeded property, requests, and payments, with all
+RLS rules applied. The only exceptions are (1) the landing and entry point are
+public, (2) intake is rate-limited per IP (demo only, real members never
+throttled — G1 zero-lost-intake preserved), (3) Stripe test mode, (4) no
+multi-member demo (only Ken, one fictional person, one property). Rate-limit
+failure falls OPEN (never-cut #4): demo should never block legitimate intake.
+
+**Trade-offs accepted:** Reviewers can see the app live; cost/abuse is bounded
+(one demo member, IP rate limit on intake). Reviewers share one demo member, so
+one reviewer's submitted requests are visible to the next — mitigated by an
+**automated reset**: `reset_demo_member()` (0017), a service-role RPC driven by
+`ops/n8n/workflows/demo-reset.json` every 30 minutes, deletes demo-created rows
+and re-inserts Ken's canonical bookings (with a fresh deposit hold that outlives
+the 24h expiry sweep). The public landing sacrifices member-privacy isolation
+for demo access — acceptable because the data is fictional (no real PII in the
+repo) and RLS still isolates the demo session to that one seeded member.
+
+**Revisit when:** if review volume ever needs concurrent, mutually-isolated demo
+sessions (e.g., "show two members signed in at once"), spin up per-visitor demo
+members or a separate demo org with its own snapshot rather than funnelling all
+traffic through Ken.
