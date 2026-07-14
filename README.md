@@ -169,7 +169,7 @@ CLAUDE.md             conventions + never-cut list for Claude Code sessions
   rotated, a real Railway↔Telegram network flake is tracked and mitigated
   ([#20](https://github.com/kristenmartino/cabana/issues/20)), and chaos day
   found a real DLQ-semantics bug ([#23](https://github.com/kristenmartino/cabana/issues/23))
-  — which is what chaos day is for.
+  which is now fixed (0018) — that's what chaos day is for.
 - The member email leg was never built — C3, the pre-agreed cut list's third
   entry; the cut is recorded in the log (Day 8) and the chaos log states the
   adapted assertion rather than pretending.
