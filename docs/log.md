@@ -756,3 +756,25 @@ Railway → Variables and it survives every re-import. Two JSON edits (both URL
 fields now use `{{ $env.AIRTABLE_BASE_ID }}` expression syntax), three doc
 updates (.env.example, ops/n8n/README.md runbook, this entry). Traces: R6 /
 ADR-01 / closes #19.
+
+## Post-v1.0 — #20 fixed (decouple the delivery legs)
+#20 fixed: the outbox-consumer marked a row `processed` only when BOTH the
+Airtable upsert AND the Telegram ping succeeded in one pass, so the
+Railway↔Telegram flake (which we watched live: rows 173/174 needed 2–3 attempts)
+re-ran the idempotent Airtable upsert and could dead-letter a row whose data had
+already landed in Airtable. Chose to DECOUPLE (over an email fallback, which
+would relitigate the "owner chose one channel" decision, or accept-as-is): 0019
+adds `outbox.airtable_delivered_at` + `telegram_delivered_at`, and a BEFORE
+UPDATE trigger stamps `processed_at` the moment both are set — completion is
+atomic and DB-owned, keeping the n8n change small. The consumer now
+`Airtable upsert → Mark airtable delivered → Telegram ping → Mark telegram
+delivered` (each mark is a conditional PATCH, only-if-null, so retries preserve
+the first timestamp). A Telegram-only failure dead-letters the Telegram leg
+alone; the Airtable projection stays delivered and the office board stays
+correct. No new channel (Telegram is still the one owner ping). Never-cut #3
+intact (retry + dead-letter + alert preserved). Chaos A2 unaffected: it drains on
+`processed_at`/dead-letter and detects dead-letter via the `dead_letters` join,
+so the additive columns don't change its pass/fail; A1 (Airtable exactly-once)
+holds — the upsert is still idempotent. Verified: db reset applies 0019 and the
+trigger fires correctly (one leg → `processed_at` null; second leg → stamped;
+never clears). Traces: R5 / ADR-02 amendment / never-cut #3 / closes #20.

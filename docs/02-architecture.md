@@ -271,7 +271,7 @@ The table a reviewer should read first. "Detection" is the column amateurs leave
 | Duplicate / out-of-order Stripe events | `stripe_events` PK conflict | Conflict → ack 200, skip; state machine ignores stale transitions | None |
 | n8n down | Sweep gap alarm; unprocessed-outbox age check; error workflow silence itself alarms via external ping | Outbox holds everything; sweep drains on recovery | Notifications delayed, none lost |
 | Airtable API failure / rate limit | Workflow error path | Backoff retries → dead-letter + Telegram alert; nightly reconciliation catches residue | Office view stale ≤24h, flagged |
-| Telegram API down | Send-step error path | Retry, then dead-letter; email is not substituted silently (owner chose one channel) | Ping delayed; visible in DLQ |
+| Telegram API down | Send-step error path; Airtable + Telegram legs decoupled (#20) | Retry, then dead-letter the Telegram leg *alone* — the Airtable projection already landed, so the office board stays correct. Email still not substituted (owner chose one channel) | Owner ping delayed / in DLQ; office view unaffected |
 | AI timeout / malformed output | zod + timeout, `ai_events.outcome` | `needs_review` + holding reply | Human triage — the old normal |
 | Prompt injection in member text | Golden-set-verified behavior; low confidence routing | Draft-only authority means worst output is a bad *draft* that still can't commit anything | Odd text in a review queue |
 | Double-booking race | DB exclusion constraint | Second writer gets structured conflict; UI offers next slots | None |

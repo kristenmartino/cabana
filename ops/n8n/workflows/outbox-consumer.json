@@ -256,7 +256,7 @@
               "value": "=eq.{{ $('Build actions').item.json.outbox_id }}"
             },
             {
-              "name": "processed_at",
+              "name": "telegram_delivered_at",
               "value": "is.null"
             }
           ]
@@ -276,15 +276,67 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ processed_at: new Date().toISOString() }) }}",
+        "jsonBody": "={{ JSON.stringify({ telegram_delivered_at: new Date().toISOString() }) }}",
         "options": {}
       },
       "id": "11111111-1111-4111-8111-111111111109",
-      "name": "Mark processed",
+      "name": "Mark telegram delivered",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
         1060,
+        -60
+      ],
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "REPLACE_WITH_SUPABASE_CRED_ID",
+          "name": "Supabase service role"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://uuviebpmiwzjyabucheo.supabase.co/rest/v1/outbox",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "=eq.{{ $('Build actions').item.json.outbox_id }}"
+            },
+            {
+              "name": "airtable_delivered_at",
+              "value": "is.null"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ airtable_delivered_at: new Date().toISOString() }) }}",
+        "options": {}
+      },
+      "id": "11111111-1111-4111-8111-111111111115",
+      "name": "Mark airtable delivered",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        700,
         -60
       ],
       "credentials": {
@@ -545,7 +597,7 @@
       "main": [
         [
           {
-            "node": "Telegram ping",
+            "node": "Mark airtable delivered",
             "type": "main",
             "index": 0
           }
@@ -563,7 +615,7 @@
       "main": [
         [
           {
-            "node": "Mark processed",
+            "node": "Mark telegram delivered",
             "type": "main",
             "index": 0
           }
@@ -616,6 +668,17 @@
         [
           {
             "node": "Mark dead-lettered",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark airtable delivered": {
+      "main": [
+        [
+          {
+            "node": "Telegram ping",
             "type": "main",
             "index": 0
           }
