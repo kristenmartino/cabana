@@ -366,7 +366,7 @@ describe("RLS: member isolation (three-fixture adversarial suite)", () => {
 });
 
 describe("Booking invariants (via service role + direct SQL)", () => {
-  it("double-booking race: two concurrent 'scheduled' inserts for same tech+window — exactly one succeeds, loser gets exclusion violation", async () => {
+  it("double-booking race: two concurrent 'scheduled' inserts for same tech+window — exactly one succeeds, the other is rejected", async () => {
     // Far-future, run-unique window so reruns and seed rows never collide.
     const start = new Date(Date.now() + (30 + Math.floor(Math.random() * 300)) * 86_400_000);
     const end = new Date(start.getTime() + 3_600_000);
@@ -392,7 +392,24 @@ describe("Booking invariants (via service role + direct SQL)", () => {
     const losers = [r1, r2].filter((r) => r.error);
     expect(winners).toHaveLength(1);
     expect(losers).toHaveLength(1);
-    expect(losers[0].error!.code).toBe("23P01"); // exclusion_violation
+
+    // The invariant is that the second write is REJECTED — not which mechanism
+    // rejects it. Postgres resolves this race two legitimate ways depending on
+    // lock acquisition order:
+    //
+    //   23P01 exclusion_violation — the constraint refused the overlap
+    //   40P01 deadlock_detected   — the two inserts deadlocked taking index
+    //                               locks and this one was chosen as victim
+    //
+    // Both leave exactly one booking, which is the whole point of the
+    // constraint and is already asserted above. Pinning 23P01 made this test
+    // fail on 2026-08-18 against 40P01 while every assertion that actually
+    // matters passed — it was testing the mechanism, not the guarantee.
+    //
+    // Still asserted narrowly rather than dropped: an unrelated failure
+    // (42501 permissions, a check constraint, a null violation) must never be
+    // mistaken for the race having been handled correctly.
+    expect(["23P01", "40P01"]).toContain(losers[0].error!.code);
     createdBookingIds.push(winners[0].data!.id);
   });
 
