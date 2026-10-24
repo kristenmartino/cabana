@@ -34,6 +34,8 @@ describe("member status page", () => {
     const html = await renderRequest("awaiting_deposit", { amount: 75, status: "pending", due: true });
     expect(html).toContain("Repair deposit: $75");
     expect(html).toContain("A visit time will be confirmed separately.");
+    expect(html).toContain("4242 4242 4242 4242");
+    expect(html).toContain("shared fictional data");
     expect(html).not.toMatch(/Dana has reviewed|five minutes|your spot|Triaged/);
     savePreview("deposit", html);
   });

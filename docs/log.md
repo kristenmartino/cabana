@@ -875,3 +875,16 @@ and enlarged navigation/editor controls to 44px while retaining the compact
 header. The access-note input now uses 16px text. Authentication, request and
 payment actions are unchanged. Typecheck, lint and 31 unit/render tests pass;
 phone verification and release evidence are recorded separately.
+
+### October 24, 2026 — Final live-flow consistency (R1 / ADR-05)
+
+The public demo was exercised from sign-out and entry through a fictional
+repair request and a successful $75 Stripe sandbox payment. Reloading the
+request retained the payment receipt while approval and a visit time remained
+pending. The seeded repair exposed an ambiguous “Scheduled” badge before
+approval: it now reads “Awaiting approval” and labels the recorded time as a
+proposed visit window. Member pages retain a shared-fictional-data disclosure,
+and the deposit screen provides test-card instructions. Added these expectations
+to the existing status/render regressions. Typecheck, lint, 31 unit/render tests
+and the production build pass. No state transitions, payment logic or palette
+changes. Live verification evidence is stored outside the source repository.

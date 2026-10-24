@@ -37,7 +37,14 @@ export function AppShell({
           )}
         </div>
       </header>
-      <main className="mx-auto max-w-md px-5 pb-24 pt-5">{children}</main>
+      <main className="mx-auto max-w-md px-5 pb-24 pt-5">
+        {showNav && (
+          <p className="mb-5 border-b border-border pb-3 text-xs leading-relaxed text-muted-foreground">
+            Demo · shared fictional data · Stripe test mode. Use sample details only.
+          </p>
+        )}
+        {children}
+      </main>
       <footer className="mx-auto max-w-md px-5 pb-8 text-center text-xs text-muted-foreground">
         <p>Sailfish Pool Care · Jupiter, FL · (561) 555-0100</p>
       </footer>

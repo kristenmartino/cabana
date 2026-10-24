@@ -13,7 +13,7 @@ describe("member request facts", () => {
 
   it("shows a recorded visit window without implying approval", () => {
     const result = requestState("scheduled", visit);
-    expect(result.label).toBe("Scheduled");
+    expect(result.label).toBe("Awaiting approval");
     expect(result.description).toContain("awaiting approval");
     expect(result.visitWindow).toContain("10:00 AM EDT");
     expect(result.visitWindow).toContain("12:00 PM EDT");
