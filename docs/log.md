@@ -903,3 +903,10 @@ timeout so the existing retry/dead-letter path can advance during egress
 failures. Added regressions for replayed deposit/scheduling events after payment
 or approval. A service-local export backs up the existing workflow before its
 narrow repair; credential references and unrelated workflows are preserved.
+The follow-up retry check found a second issue: the conditional Airtable
+acknowledgment PATCH returned no rows on subsequent sweeps, so n8n emitted no
+items to the Telegram branch. A successful upsert now always refreshes its
+acknowledgment and continues the retry path. Only the QA scheduling event was
+requeued for its corrected office projection; booking and payment facts stayed
+unchanged. Consumer dead-lettering is an operator-review path; it does not itself
+send an alert, so the case study no longer claims that it does.

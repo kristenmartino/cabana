@@ -306,10 +306,6 @@
             {
               "name": "id",
               "value": "=eq.{{ $('Build actions').item.json.outbox_id }}"
-            },
-            {
-              "name": "airtable_delivered_at",
-              "value": "is.null"
             }
           ]
         },
