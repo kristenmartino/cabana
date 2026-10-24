@@ -30,7 +30,7 @@ export function requestState(status: string, window: unknown = null): {
     awaiting_deposit: { tone: "deposit", label: "Awaiting deposit", description: "A repair deposit is required. A visit time has not been confirmed." },
     scheduled: {
       tone: "scheduled",
-      label: visitWindow ? "Scheduled" : "Awaiting visit time",
+      label: visitWindow ? "Awaiting approval" : "Awaiting visit time",
       description: visitWindow
         ? "A visit window is recorded. The request is awaiting approval."
         : "A visit time has not been assigned. The request is awaiting approval.",

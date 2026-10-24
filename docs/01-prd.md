@@ -186,6 +186,9 @@ acknowledgments remain available in triage records for staff; they are not shown
 as staff replies. AI triage does not establish human review. A `scheduled`
 booking without a recorded visit window is labeled “Awaiting visit time”; a
 `confirmed` booking without a window is labeled “Approved · time pending.”
+A `scheduled` booking with a window is labeled “Awaiting approval,” with the
+proposed visit window shown separately. Member pages retain the shared-demo
+disclosure; the deposit screen provides Stripe test-card instructions.
 Terminal requests do not show future progress steps. The weekly plan day is
 labeled “Regular service day,” rather than calculated as an appointment.
 Member copy makes no response-time, text-message, or reserved-slot commitment.

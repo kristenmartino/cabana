@@ -42,7 +42,7 @@ export default async function RequestStatus({ params, searchParams }: {
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{req.description}</p>
         {req.visitWindow && (
           <dl className="mt-4 text-sm">
-            <dt className="font-semibold text-deepwater">Visit window</dt>
+            <dt className="font-semibold text-deepwater">{req.status === "scheduled" ? "Proposed visit window" : "Visit window"}</dt>
             <dd className="mt-1 text-muted-foreground">{req.visitWindow}</dd>
           </dl>
         )}
@@ -66,6 +66,9 @@ export default async function RequestStatus({ params, searchParams }: {
               </p>
               <PayDepositButton bookingId={req.id} amount={req.deposit.amount} />
               <p className="mt-2 text-center text-xs text-muted-foreground">Stripe checkout · test mode. No real payment is collected.</p>
+              <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                Choose Card and use 4242 4242 4242 4242, any future expiry date and any three-digit CVC. Use sample contact details.
+              </p>
             </>
           )}
         </section>
