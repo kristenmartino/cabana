@@ -18,10 +18,10 @@ export function AppShell({
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-20 border-b border-border bg-background">
-        <div className="mx-auto flex max-w-md items-center justify-between px-5 py-3">
+        <div className="mx-auto flex max-w-md items-center justify-between gap-3 px-5 py-1">
           <Link
             href="/"
-            className="flex items-center rounded-lg "
+            className="flex min-h-11 shrink-0 items-center rounded-lg"
           >
             <SailfishLogo />
           </Link>
@@ -29,7 +29,7 @@ export function AppShell({
             <form action={signOut}>
               <button
                 type="submit"
-                className="rounded-lg px-1 text-xs font-medium text-muted-foreground transition-colors duration-200 hover:text-deepwater"
+                className="min-h-11 shrink-0 rounded-lg px-2 text-xs font-medium text-muted-foreground transition-colors duration-200 hover:text-deepwater"
               >
                 Sign out
               </button>

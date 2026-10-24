@@ -84,7 +84,7 @@ export default function SignIn() {
             </p>
             <button
               onClick={() => setView("form")}
-              className="mt-5 text-sm font-medium text-lagoon underline-offset-4 hover:underline"
+              className="mt-5 inline-flex min-h-11 items-center rounded-lg text-sm font-medium text-lagoon underline-offset-4 hover:underline"
             >
               Use a different email
             </button>
@@ -113,7 +113,7 @@ export default function SignIn() {
             </a>
             <button
               onClick={() => setView("form")}
-              className="mt-4 block w-full text-sm font-medium text-lagoon underline-offset-4 hover:underline"
+              className="mt-4 flex min-h-11 w-full items-center justify-center rounded-lg text-sm font-medium text-lagoon underline-offset-4 hover:underline"
             >
               Try a different email
             </button>

@@ -865,3 +865,13 @@ test fixtures and production CSS (screenshots in `docs/qa/2026-10-24/`); local
 Supabase/Docker was stopped, so live RLS/payment integration suites were not run.
 No prompt, database migration, payment transition, or deployment changes.
 Traces: R1–R4 / R8 / ADR-05 / ADR-08; presentation amendment in `docs/01-prd.md`.
+
+### October 24, 2026 — Phone layout and touch controls (R1 / ADR-05)
+
+Live 320px and 375px checks found request summaries squeezed beside fixed-width
+status badges, small Sign out/Edit targets, and a 14px access-note textarea.
+Stacked summary and status on phones, added safe wrapping for long member text,
+and enlarged navigation/editor controls to 44px while retaining the compact
+header. The access-note input now uses 16px text. Authentication, request and
+payment actions are unchanged. Typecheck, lint and 31 unit/render tests pass;
+phone verification and release evidence are recorded separately.

@@ -21,7 +21,7 @@ export default async function RequestStatus({ params, searchParams }: {
 
   return (
     <AppShell>
-      <Link href="/" className="text-sm font-medium text-muted-foreground hover:text-deepwater">
+      <Link href="/" className="inline-flex min-h-11 items-center rounded-lg text-sm font-medium text-muted-foreground hover:text-deepwater">
         ← Back to home
       </Link>
       <div className="mt-4">
@@ -32,7 +32,7 @@ export default async function RequestStatus({ params, searchParams }: {
       {req.requestText && (
         <blockquote className="mt-5 border-l-2 border-lagoon pl-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">You wrote</p>
-          <p className="mt-2 text-[15px] leading-relaxed text-deepwater">{req.requestText}</p>
+          <p className="mt-2 [overflow-wrap:anywhere] text-[15px] leading-relaxed text-deepwater">{req.requestText}</p>
         </blockquote>
       )}
 

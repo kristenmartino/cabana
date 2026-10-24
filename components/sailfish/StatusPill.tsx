@@ -30,7 +30,7 @@ export function StatusPill({
 }) {
   return (
     <span
-      className={`inline-flex shrink-0 items-center rounded-md font-semibold uppercase tracking-wide ${sizes[size]} ${tones[tone]}`}
+      className={`inline-flex max-w-full shrink-0 items-center [overflow-wrap:anywhere] rounded-md font-semibold uppercase tracking-wide ${sizes[size]} ${tones[tone]}`}
     >
       {children}
     </span>
