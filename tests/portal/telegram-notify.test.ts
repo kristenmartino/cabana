@@ -7,7 +7,7 @@ let fetcher: ReturnType<typeof vi.fn<typeof fetch>>;
 const request = (body: unknown, key = "worker-secret") => new Request("https://demo.invalid/telegram-notify", {
   method: "POST", headers: { authorization: `Bearer ${key}`, "content-type": "application/json" }, body: JSON.stringify(body),
 });
-const handler = () => createHandler({ serviceKey: "worker-secret", botToken: "private-token", store, fetcher });
+const handler = () => createHandler({ authorize: async h => h === "Bearer worker-secret", botToken: "private-token", store, fetcher });
 
 beforeEach(() => {
   store = {

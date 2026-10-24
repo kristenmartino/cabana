@@ -6,6 +6,15 @@ alter table public.outbox
   add column telegram_claim_token uuid,
   add column telegram_claim_until timestamptz;
 
+-- Validate the caller's database role, rather than comparing its JWT bytes
+-- with the platform's internally minted service token.
+create function public.authorize_telegram_worker()
+returns boolean language sql stable security invoker set search_path = public as $$
+  select current_user = 'service_role';
+$$;
+revoke all on function public.authorize_telegram_worker() from public, anon, authenticated;
+grant execute on function public.authorize_telegram_worker() to service_role;
+
 create function public.claim_telegram_delivery(p_outbox_id bigint)
 returns uuid language sql security invoker set search_path = public as $$
   update outbox

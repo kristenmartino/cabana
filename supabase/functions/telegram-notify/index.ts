@@ -33,4 +33,15 @@ const store: DeliveryStore = {
     check(error);
   },
 };
-Deno.serve(createHandler({ serviceKey, botToken: Deno.env.get("TELEGRAM_BOT_TOKEN")!, store }));
+async function authorize(authorization: string) {
+  if (!authorization.startsWith("Bearer ")) return false;
+  // PostgREST verifies the caller's JWT. This RPC is executable only by the
+  // existing service_role, so member/anonymous tokens cannot send notifications.
+  const caller = createClient(Deno.env.get("SUPABASE_URL")!, serviceKey, {
+    global: { headers: { Authorization: authorization } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data, error } = await caller.rpc("authorize_telegram_worker");
+  return !error && data === true;
+}
+Deno.serve(createHandler({ authorize, botToken: Deno.env.get("TELEGRAM_BOT_TOKEN")!, store }));

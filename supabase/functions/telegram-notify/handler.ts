@@ -13,13 +13,6 @@ export interface DeliveryStore {
   release(id: number, token: string): Promise<void>;
 }
 
-function equalSecret(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let difference = 0;
-  for (let i = 0; i < a.length; i++) difference |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return difference === 0;
-}
-
 export function notificationBody(event: Event, booking: Booking, owner: number) {
   const p = event.payload;
   const lines = [event.topic === "booking.created" ? "🟦 New booking" :
@@ -37,14 +30,17 @@ export function notificationBody(event: Event, booking: Booking, owner: number) 
 }
 
 export function createHandler(options: {
-  serviceKey: string; botToken: string; store: DeliveryStore;
+  authorize: (authorization: string) => Promise<boolean>;
+  botToken: string; store: DeliveryStore;
   fetcher?: typeof fetch;
 }) {
-  const { serviceKey, botToken, store, fetcher = fetch } = options;
+  const { authorize, botToken, store, fetcher = fetch } = options;
   const json = (body: unknown, status = 200) => Response.json(body, { status });
   return async (req: Request): Promise<Response> => {
-    if (!serviceKey || !equalSecret(req.headers.get("authorization") || "", `Bearer ${serviceKey}`))
-      return json({ error: "unauthorized" }, 401);
+    try {
+      if (!await authorize(req.headers.get("authorization") || ""))
+        return json({ error: "unauthorized" }, 401);
+    } catch { return json({ error: "authorization unavailable" }, 503); }
     let claimed: { id: number; token: string } | null = null;
     let acceptedByTelegram = false;
     try {
@@ -95,8 +91,10 @@ export function createHandler(options: {
       if (!r.ok || result.ok !== true || !Number.isSafeInteger(messageId) || messageId <= 0)
         throw new Error("Telegram rejected delivery");
       acceptedByTelegram = true;
-      if (claimed && !await store.complete(claimed.id, claimed.token, messageId))
+      if (claimed && !await store.complete(claimed.id, claimed.token, messageId)) {
+        console.error("Telegram receipt write failed", { outbox_id: claimed.id, message_id: messageId });
         throw new Error("Delivery receipt could not be committed");
+      }
       return json({ ok: true, message_id: messageId });
     } catch {
       // Never expose an upstream URL: Telegram URLs contain the bot credential.

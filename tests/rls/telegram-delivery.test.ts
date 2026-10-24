@@ -29,7 +29,7 @@ describe("Telegram delivery receipt boundary", () => {
   });
 
   it.each(["anon", "authenticated"])("does not grant receipt RPCs to %s", async role => {
-    const r = await pool.query("select has_function_privilege($1,'claim_telegram_delivery(bigint)','EXECUTE') as claim, has_function_privilege($1,'complete_telegram_delivery(bigint,uuid,bigint)','EXECUTE') as complete", [role]);
-    expect(r.rows[0]).toEqual({ claim: false, complete: false });
+    const r = await pool.query("select has_function_privilege($1,'claim_telegram_delivery(bigint)','EXECUTE') as claim, has_function_privilege($1,'complete_telegram_delivery(bigint,uuid,bigint)','EXECUTE') as complete, has_function_privilege($1,'authorize_telegram_worker()','EXECUTE') as authorize", [role]);
+    expect(r.rows[0]).toEqual({ claim: false, complete: false, authorize: false });
   });
 });

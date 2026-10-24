@@ -387,7 +387,7 @@ verify_jwt = false
 verify_jwt = false
 
 # Internal worker calls retain gateway JWT verification and also require the
-# exact service-role bearer credential in the handler. Member JWTs are refused.
+# service-role authorization in the database. Member JWTs are refused.
 [functions.telegram-notify]
 verify_jwt = true
 
