@@ -4,6 +4,34 @@ n8n delivers Airtable updates and staff notifications (R5 / ADR-02), and runs
 deposit expiry, nightly reconciliation and health checks. Member email is not
 implemented. Decisions live in Postgres; delivery runs here.
 
+## Current Telegram delivery route — October 24, 2026
+
+The four notification workflows call the private Supabase `telegram-notify`
+function using the existing Supabase worker credential. Railway's direct
+connection to Telegram was intermittently timing out. The same bot and the
+single database-allowlisted owner chat remain the destinations.
+
+The consumer sends `{outbox_id}`. The function reads the current booking,
+claims a 45-second database lease and sends with an eight-second deadline.
+Only a successful Telegram response containing a positive message ID can
+commit `telegram_delivered_at` and `telegram_message_id`. Completion also
+resolves retained failure history. n8n no longer marks Telegram delivery itself.
+Operational alerts send `{text}` through the same authenticated route; callers
+cannot supply a chat ID. The gateway verifies JWTs and a service-role-only RPC
+checks worker authorization. Anonymous and member roles cannot invoke it.
+
+An already delivered event returns its stored receipt without another send.
+Overlapping sweeps share the lease. Delivery remains at least once: an upstream
+timeout after Telegram accepted a message can still leave an ambiguous result.
+Dead-lettered events require explicit operator requeue; never set a delivery
+timestamp manually to clear health checks.
+
+The live repair retried events 2613 and 2617 successfully (Telegram message IDs
+732 and 733). A fresh browser request and Stripe sandbox payment then produced
+three acknowledged notifications (734–736), one current Airtable row and no
+pending or dead-lettered events. The older Gate-1 specification below documents
+the original direct-send implementation.
+
 ## Versioning convention
 Workflows are exported as JSON into `workflows/` and committed with the change
 that motivated them (Settings → Download in n8n). The export is the review

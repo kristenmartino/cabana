@@ -386,6 +386,11 @@ verify_jwt = false
 [functions.airtable-writeback]
 verify_jwt = false
 
+# Internal worker calls retain gateway JWT verification and also require the
+# service-role authorization in the database. Member JWTs are refused.
+[functions.telegram-notify]
+verify_jwt = true
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

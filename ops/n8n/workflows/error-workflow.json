@@ -31,12 +31,20 @@
       "onError": "continueErrorOutput",
       "parameters": {
         "method": "POST",
-        "url": "=https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "url": "https://uuviebpmiwzjyabucheo.supabase.co/functions/v1/telegram-notify",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ chat_id: '7019824213', text: '🚨 n8n WORKFLOW FAILED\\n\\nWorkflow: ' + $json.workflow.name + '\\nNode: ' + ($json.execution.error.node ? $json.execution.error.node.name : 'unknown') + '\\nError: ' + $json.execution.error.message + '\\n\\nExecution: ' + $json.execution.url }) }}",
+        "jsonBody": "={{ JSON.stringify({ text: '🚨 n8n WORKFLOW FAILED\\n\\nWorkflow: ' + $json.workflow.name + '\\nNode: ' + ($json.execution.error.node ? $json.execution.error.node.name : 'unknown') + '\\nError: ' + $json.execution.error.message + '\\n\\nExecution: ' + $json.execution.url }) }}",
         "options": {
-          "timeout": 10000
+          "timeout": 25000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth"
+      },
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "REPLACE_WITH_SUPABASE_CRED_ID",
+          "name": "Supabase service role"
         }
       }
     },
