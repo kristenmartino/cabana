@@ -123,7 +123,12 @@ create_payload="$(cat <<'JSON'
     { "name": "window_start", "type": "dateTime", "options": {
         "dateFormat": { "name": "iso" },
         "timeFormat": { "name": "24hour" },
-        "timeZone": "utc"
+        "timeZone": "America/New_York"
+      } },
+    { "name": "window_end", "type": "dateTime", "options": {
+        "dateFormat": { "name": "iso" },
+        "timeFormat": { "name": "24hour" },
+        "timeZone": "America/New_York"
       } },
     { "name": "last_synced", "type": "dateTime", "options": {
         "dateFormat": { "name": "iso" },

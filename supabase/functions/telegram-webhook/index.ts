@@ -11,6 +11,8 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import Anthropic from "npm:@anthropic-ai/sdk";
+import { parseScheduleCommand } from "./schedule.ts";
+import { formatVisitWindow } from "../telegram-notify/handler.ts";
 
 const WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET")!;
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
@@ -160,6 +162,30 @@ Deno.serve(async (req) => {
 
   const text: string = update.message?.text ?? "";
   const [cmd, ...args] = text.trim().split(/\s+/);
+
+  // Scheduling is a separate owner action; approval and payment stay intact.
+  if (cmd === "/schedule") {
+    if (chat.role !== "owner") {
+      await tg("sendMessage", { chat_id: chatId, text: "Only the owner can assign visit times." });
+      return new Response("ok");
+    }
+    const visit = parseScheduleCommand(args);
+    if (!visit) {
+      await tg("sendMessage", { chat_id: chatId,
+        text: "Usage: /schedule <booking id> <start ISO time with offset> <end ISO time with offset>\nExample times: 2026-10-27T09:00-04:00 2026-10-27T11:00-04:00" });
+      return new Response("ok");
+    }
+    const { data: booking, error } = await db.rpc("assign_visit_window", {
+      p_booking_id: visit.id, p_start: visit.start, p_end: visit.end, p_actor: "owner:telegram",
+    });
+    const message = !error ? `Visit window saved: ${formatVisitWindow(booking.window)}\nBooking: ${visit.id}`
+      : error.code === "23P01" ? "That technician already has a visit in this window. Choose another time."
+      : error.code === "P0001" ? "This booking is not ready for scheduling."
+      : error.code === "P0002" ? "No booking with that id."
+      : "Couldn't save the visit time — try again.";
+    await tg("sendMessage", { chat_id: chatId, text: message });
+    return new Response("ok");
+  }
 
   // /today — show today's schedule
   if (cmd === "/today") {
@@ -376,6 +402,7 @@ Deno.serve(async (req) => {
     text: `<b>Cabana bot commands:</b>
 /today — Show today's schedule
 /week — Show this week's schedule
+/schedule &lt;id&gt; &lt;start ISO&gt; &lt;end ISO&gt; — Assign a visit window (owner only)
 /cancel &lt;id&gt; — Cancel a booking
 /brief — AI summary of today`,
     parse_mode: "HTML",

@@ -46,6 +46,14 @@ describe("private Telegram delivery", () => {
     expect(JSON.parse(String(fetcher.mock.calls[0][1]?.body)).reply_markup).toBeUndefined();
   });
 
+  it("delivers a date-only scheduling event with the current window", async () => {
+    vi.mocked(store.event).mockResolvedValue({ ...event, topic: "booking.visit_window_changed" });
+    vi.mocked(store.booking).mockResolvedValue({ id:"booking",status:"confirmed",kind:"repair",request_text:null,window:'["2026-10-27T13:00Z","2026-10-27T15:00Z")' });
+    expect((await handler()(request({outbox_id:7}))).status).toBe(200);
+    expect(JSON.parse(String(fetcher.mock.calls[0][1]?.body)).text).toContain("9:00 AM EDT");
+    expect(store.complete).toHaveBeenCalledWith(7,"lease",456);
+  });
+
   it("skips an acknowledged event without sending again", async () => {
     vi.mocked(store.event).mockResolvedValue({ ...event, telegram_delivered_at: "2026-10-24", telegram_message_id: 42 });
     expect(await (await handler()(request({ outbox_id: 7 }))).json()).toMatchObject({ already_delivered: true, message_id: 42 });

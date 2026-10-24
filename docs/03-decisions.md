@@ -102,6 +102,15 @@ Compact ADR format: Context → Options → Decision → Trade-offs accepted →
 
 ## ADR-07 — Telegram bot in webhook mode with a chat allowlist
 
+**Scheduling amendment (October 24, 2026):** assigning a visit window is an
+explicit owner `/schedule` action, separate from approval. The service-only
+`assign_visit_window` RPC validates and locks the booking, retains approval and
+payment, and writes the date change plus a delivery event in one transaction.
+Date-only edits emit their own `booking.visit_window_changed` events; repeated
+identical assignments emit nothing. The existing outbox retry/receipt path
+delivers both window bounds to Airtable and Telegram. No Airtable write-back
+field or member write permission is added.
+
 **Context:** R7. The bot can approve real work orders — it is an admin surface that happens to live in a chat app, and anyone can message any Telegram bot.
 
 **Options:** long-polling (easy in dev, fragile and stateful in prod) vs. **webhook mode** (push, stateless, requires public HTTPS + validation discipline).

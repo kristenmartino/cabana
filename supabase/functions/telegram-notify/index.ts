@@ -15,7 +15,7 @@ const store: DeliveryStore = {
     check(error); return data;
   },
   async booking(id) {
-    const { data, error } = await db.from("bookings").select("id,status,kind,request_text").eq("id", id).maybeSingle();
+    const { data, error } = await db.from("bookings").select("id,status,kind,request_text,window").eq("id", id).maybeSingle();
     check(error); return data;
   },
   async claim(id) {

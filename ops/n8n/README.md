@@ -4,6 +4,22 @@ n8n delivers Airtable updates and staff notifications (R5 / ADR-02), and runs
 deposit expiry, nightly reconciliation and health checks. Member email is not
 implemented. Decisions live in Postgres; delivery runs here.
 
+## Assigning visit times
+
+The owner can send `/schedule <booking id> <start ISO> <end ISO>` in the existing
+Telegram staff chat. Both timestamps need an explicit UTC offset, for example
+`2026-10-27T09:00-04:00 2026-10-27T11:00-04:00`. The command accepts only bookings
+already ready for scheduling and keeps approval/payment unchanged. The database
+retains its technician-overlap constraint. Repeating the same window is a no-op.
+
+`assign_visit_window` commits the window and a `booking.visit_window_changed`
+outbox event together. Every changed window gets its own event so later
+rescheduling also propagates. Telegram shows both bounds in America/New_York,
+including the timezone abbreviation. Airtable projects `window_start` and
+`window_end` from the current booking; these date/time fields should display in
+America/New_York. Provision `window_end` in an existing base before importing
+the updated consumer. Both fields are cleared when the source window is absent.
+
 ## Current Telegram delivery route — October 24, 2026
 
 The four notification workflows call the private Supabase `telegram-notify`
