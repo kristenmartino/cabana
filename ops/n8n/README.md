@@ -1,8 +1,8 @@
 # n8n workflows
 
-n8n owns all outbound side effects (R5 / ADR-02): Airtable projection, Telegram
-pings, member email, the 24h deposit-expiry job, the nightly reconciliation,
-and the health-check poller. Decisions live in Postgres; only *delivery* lives here.
+n8n delivers Airtable updates and staff notifications (R5 / ADR-02), and runs
+deposit expiry, nightly reconciliation and health checks. Member email is not
+implemented. Decisions live in Postgres; delivery runs here.
 
 ## Versioning convention
 Workflows are exported as JSON into `workflows/` and committed with the change

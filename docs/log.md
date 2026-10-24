@@ -888,3 +888,25 @@ and the deposit screen provides test-card instructions. Added these expectations
 to the existing status/render regressions. Typecheck, lint, 31 unit/render tests
 and the production build pass. No state transitions, payment logic or palette
 changes. Live verification evidence is stored outside the source repository.
+
+### October 24, 2026 — Live delivery recovery and replay projection
+
+The final public-flow check saved a fictional repair and completed a Stripe
+sandbox deposit, but its outbox events remained untouched. With explicit owner
+authorization, Railway logs showed repeated n8n database-pool connection
+timeouts. Restarting the existing deployment restored database access and the
+delivery sweep. Replaying the backlog then exposed a stale office status:
+historical event payloads could overwrite the current booking projection.
+Build actions now prefer the freshly fetched booking status; historical event
+details remain in notification text. The main Telegram request now has a 10s
+timeout so the existing retry/dead-letter path can advance during egress
+failures. Added regressions for replayed deposit/scheduling events after payment
+or approval. A service-local export backs up the existing workflow before its
+narrow repair; credential references and unrelated workflows are preserved.
+The follow-up retry check found a second issue: the conditional Airtable
+acknowledgment PATCH returned no rows on subsequent sweeps, so n8n emitted no
+items to the Telegram branch. A successful upsert now always refreshes its
+acknowledgment and continues the retry path. Only the QA scheduling event was
+requeued for its corrected office projection; booking and payment facts stayed
+unchanged. Consumer dead-lettering is an operator-review path; it does not itself
+send an alert, so the case study no longer claims that it does.
