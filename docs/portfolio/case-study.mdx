@@ -1,0 +1,198 @@
+---
+title: "Cabana"
+summary: "A member portal and ops layer where AI triages free-text repair requests, Stripe collects deposits, and an outbox tracks integration deliveries and failures."
+category: "Applied AI · Ops Systems"
+role: "Solo engineer — discovery, architecture, invariants, implementation, and review (paired with Claude Code)"
+stack:
+  - "Next.js 15 (Vercel)"
+  - "Supabase (Postgres · Auth · RLS · Edge Functions)"
+  - "Stripe Checkout"
+  - "n8n (Railway)"
+  - "Airtable"
+  - "Telegram Bot API"
+  - "Claude Haiku"
+  - "Resend"
+links:
+  loom: "TODO_LOOM_URL"
+  github: "TODO_REPO_URL"
+---
+
+# Cabana
+
+**A member portal and operations layer for a small pool-service company — built so that no request, payment, or notification is ever silently lost.**
+
+The spine, in one sentence:
+
+> A member describes a problem in their own words → Claude Haiku triages it (confidence-gated; staff control prices and visit times) → qualified repairs collect a $75 deposit via Stripe Checkout (webhook-authoritative, idempotent) → the owner approves with one tap from Telegram → the office runs the week from an Airtable projection → a transactional outbox + n8n track delivery, retries, and failed events.
+
+`Next.js 15 (Vercel)` · `Supabase — Postgres · RLS · Edge Functions` · `Stripe Checkout` · `n8n` · `Airtable` · `Telegram` · `Claude Haiku`
+
+*Fictional client (Sailfish Pool Care, Jupiter FL); every member, address, and number is fabricated. Built solo, pairing with Claude Code — the human owned the architecture, the invariants, and the review; the log records the AI mistakes that review caught.*
+
+Gates 1, 2, and 3a (spine, money path, chaos) are closed; the v1.0 ship-out — Loom recording and git tag — is still pending, so there is deliberately **no public demo link to chase**. The portal is member-gated by design (R1); the demo is a 90-second Loom plus a local run.
+
+<!-- LOOM_EMBED after recording -->
+
+---
+
+## TL;DR
+
+- **Three personas, one truth.** A **member** reports a problem and pays a deposit; **Dana** (owner, lives in a truck) approves from Telegram in one tap; **Marie** (office, non-technical) runs Monday admin from an Airtable projection. Supabase Postgres is the single source of truth for all three.
+- **AI that drafts but cannot commit.** Claude Haiku classifies free-text intake against a zod schema and drafts a warm acknowledgment. There is no code path by which it can set a price, promise a time, or advance a booking past `needs_review` / `awaiting_deposit`. Safety is architectural, not a prompt asking nicely.
+- **Payment truth is the webhook, not the redirect.** Payment state changes only from signature-verified Stripe events, recorded idempotently in a `stripe_events` ledger. The success page renders "confirming…" until the database says paid.
+- **Nothing drops silently.** Status changes and their side-effect events commit in one transaction (the outbox); n8n consumes at-least-once with retries → dead-letter → Telegram alert → nightly reconciliation. Silence always means healthy.
+- **The complexity budget is spent in exactly three places** — payment truth, delivery tracking, and member isolation — and the remaining parts use standard hosted services.
+- **Evidence, not adjectives:** a committed chaos run put 50 bookings through the live pipeline while the queue consumer was killed, Airtable auth was broken, and Stripe events were replayed — **0 lost, 0 duplicated**. The log is in the repo.
+
+---
+
+## Context & problem
+
+Sailfish Pool Care is a fictional 3-tech company run, like many real ones, on phone memory, a spreadsheet, a shared calendar, and a group text. Inbound repair requests get lost across text and Messenger; customer data is retyped into four places; deposits go uncollected because asking is awkward; and "what day is my service?" eats the owner's mornings.
+
+Every requirement traces back to a discovery answer — the chain from `docs/00-discovery.md` → `docs/01-prd.md` is kept intact so scope can't drift quietly. The PRD's eight requirements (R1–R8) each cite the discovery question they de-risk, and its seven non-goals (NG1–NG7) are stated as deliberately as the goals: no billing migration (QuickBooks autopay is left untouched — the classic SMB project-killer), no route-optimization engine, no tech app in v1, no SMS. The competitive read is honest too: if AI-triaged free-text intake, Telegram-native approvals, and QuickBooks coexistence weren't the requirements, the recommendation would be "buy Skimmer."
+
+Full detail: [`docs/01-prd.md`](docs/01-prd.md) (requirements + non-goals), [`docs/02-architecture.md`](docs/02-architecture.md) (the system as designed).
+
+---
+
+## The demo
+
+The portal is member-gated (R1), so the demo is a 90-second Loom and a local run — not an open URL. Script and beats are committed in [`docs/loom-script.md`](docs/loom-script.md).
+
+<!-- LOOM_EMBED -->
+
+| # | ~sec | On screen | Beat |
+|---|---|---|---|
+| 1 | 0–15 | Portal on a phone: type a fresh, messy repair ("*salt cell's reading zero and the returns are barely pushing water*") and submit | A member describes the problem in their own words — no form shaped like the company's database. |
+| 2 | 15–30 | The status page: recorded request state and repair deposit | Application routing sends qualified repairs to a deposit. Member copy reports the recorded status without claiming staff review or a reserved slot. |
+| 3 | 30–45 | Pay with `4242 4242 4242 4242` → "Confirming your payment…" → the page flips to **Scheduled on its own** in ~3s | Stripe Checkout, webhook-authoritative. The redirect is cosmetic; the page watches until the verified event lands. Replays can't double-book it — we proved that by replaying them. |
+| 4 | 45–55 | Telegram: the booking ping → tap **Approve** → "✅ Approved" | Dana approves from the truck. One tap. Double-taps no-op — exactly one audit row. |
+| 5 | 55–70 | Airtable Interface: the week by tech; tick `mark_completed` on a confirmed job; the status flips | The office runs the week from an Airtable projection. Two whitelisted fields write back through a guarded edge function — Supabase stays the only source of truth. |
+| 6 | 70–85 | The committed chaos log; scroll the four PASS lines | The recorded failure-injection run produced 50 Airtable records for 50 bookings with no duplicates; 43 outbox events were dead-lettered. |
+| 7 | 85–90 | The README failure-modes table | Every integration, how it fails, and how we *detect* it. That table is the point of the build. |
+
+---
+
+## Architecture
+
+![Architecture](./architecture.svg)
+
+- **Next.js on Vercel** — the member portal; server actions perform every write (no client-side service keys, ever); middleware gates authenticated routes.
+- **Supabase Postgres** — the single source of truth; RLS enforces member isolation at the database, not in UI filters; it also hosts the outbox, audit, and idempotency tables.
+- **Supabase Edge Functions** — the three inbound webhook surfaces (Stripe, Telegram, Airtable write-back). They validate authenticity, translate to a state change plus an outbox row, and exit. No orchestration lives here.
+- **Claude Haiku** — intake triage as a bounded subsystem: schema-validated, confidence-gated, fully logged, allowed to draft but never to commit.
+- **n8n** — all outbound side effects (Airtable, Telegram, email), consumed from the outbox with retries, dead-lettering, and an error workflow. Orchestration lives where a non-engineer operator can open it and *see* the flow.
+- **Airtable** — a projection of Supabase for the office persona, not a second source of truth.
+- **Telegram** — the owner's front door; webhook mode with secret-token validation and a chat allowlist.
+
+**The three complexity zones.** The design spends its complexity budget on exactly three things — **payment truth** (webhook-authoritative, idempotent), **delivery tracking** (the transactional outbox and its DLQ), and **member data isolation** (RLS, tested adversarially). The remaining parts use standard hosted services.
+
+---
+
+## Decisions that mattered
+
+The nine ADRs (with the options that lost) live in [`docs/03-decisions.md`](docs/03-decisions.md). Four load-bearing ones:
+
+**ADR-02 — Transactional outbox.** Booking changes and pending integration events are committed together. n8n processes those events, using a webhook trigger and a 60-second sweep. Failed deliveries are retried, then recorded in a dead-letter queue with an operational alert. Nightly reconciliation checks for drift. The member-email delivery leg was not implemented. Operators still need to resolve dead-lettered work. See the recorded run below for the tested scope.
+
+**ADR-03 — Stripe webhooks as the sole authority on payment state.** *Context:* the deposit is the money path, and the two classic failures are trusting the success-redirect and processing events non-idempotently. *What lost:* the embedded Payment Element — branded, but far more surface area (payment-intent lifecycle, SCA edge cases, PCI-adjacent code) for a $75 deposit. *What was built:* hosted Stripe Checkout, plus two invariants that hold regardless of surface — (1) payment state transitions originate *only* from signature-verified webhook events, with event IDs persisted in `stripe_events` for idempotency and out-of-order tolerance; (2) the success redirect is cosmetic and renders "confirming…" until the database says paid.
+
+**ADR-01 — Airtable is a projection, with a two-field fenced write-back.** *Context:* the office persona needs a CRM-like console, which Airtable is ideal for — and catastrophic as a second source of truth (bidirectional sync between two databases with different consistency models is a well-known tarpit). *What lost:* full two-way sync (the tarpit) and, at the other extreme, strictly read-only Airtable — which fails the persona, because Marie must be able to *do* things or she keeps her own spreadsheet and the shadow system returns. *What was built:* one-way projection plus a whitelisted write-back of exactly two fields (`mark completed`, `visit notes`) through a validating edge function; conflicts resolve to Supabase with an audit entry; any non-whitelisted edit is overwritten by the next sync *and logged*, so the behavior is a documented rule, not a surprise; nightly reconciliation makes drift visible within 24h. Expanding the whitelist costs a code change, deliberately.
+
+**ADR-08 — Haiku can draft, cannot commit.** *Context:* the AI's value is speed-to-first-response and structured qualification; its risk is a confident wrong promise to a member. Dana's own words are the spec: a wrong confident answer is worse than a slow one. *What lost:* a large model with broad authority that drafts *and* schedules — the most impressive demo, and exactly the failure mode the requirement prohibits; also "no AI," which reinstates the intake-losing friction. *What was built:* a small model (Haiku) on a narrow contract — classify, extract, and draft against a zod schema; confidence-gated to a human queue; timeout → human queue; and *no code path exists* by which model output changes price, time, or any status beyond `awaiting_deposit` / `needs_review`. The application limits which state changes triage can trigger. Free-text drafts can still contain mistakes and are kept off member status pages. The golden set in CI — including prompt-injection cases — makes the guardrails regression-tested rather than assumed.
+
+---
+
+## Reliability
+
+The failure-modes table describes detection, handling, and remaining limitations. The recorded chaos run exercised several of these paths. (Source: [`docs/02-architecture.md`](docs/02-architecture.md) §6.)
+
+| Failure | Detection | Handling | Worst case after handling |
+|---|---|---|---|
+| Stripe webhook endpoint down | Stripe dashboard + reconciliation vs. `payments.pending` age alert | Stripe retries ~72h; idempotent processing on recovery | Payment confirmation can be delayed; unresolved payments require reconciliation |
+| Duplicate / out-of-order Stripe events | `stripe_events` PK conflict | Conflict → ack 200, skip; state machine ignores stale transitions | None — **replayed 5× live in the chaos run, zero effects** |
+| n8n down | Health-check probe (outbox depth + oldest-unprocessed age → 503 → alert) | Outbox holds everything; sweep drains on recovery | Notifications delayed, none lost — **killed live for 90s mid-run; backlog of 48 held in the outbox, drained on restart, none lost or duplicated** |
+| Airtable API failure / auth break | Workflow error path + per-row `last_error` | Backoff retries → dead-letter + Telegram alert; nightly reconciliation catches residue | Office view stale, flagged — **a 60s injected auth break became ~25 min; deliveries still landed exactly-once** |
+| Telegram API down | Send-step error path; alert channel falls back to **Resend email** | Retry (10s timeout, 3×), then dead-letter + alert | Ping delayed; visible in DLQ — the Railway↔Telegram flake is real and tracked (#20) |
+| AI timeout / malformed output | zod + 2s budget, `ai_events.outcome` | `needs_review` + holding reply; the member flow cannot throw on a model failure | Human triage — the old normal. **Proven both directions in prod** |
+| Prompt injection in member text | CI requires all marked containment cases to pass | Application limits routing to review or a deposit; drafts are not displayed as staff replies | Misclassification can still produce an inappropriate deposit request |
+| Double-booking race | DB `gist` exclusion constraint | Second writer gets a structured conflict | None |
+| DST transition | `tests/dst/` pins both 2026 boundaries | UTC storage; `America/New_York` applied only at render; range math in SQL | None |
+| Deposit paid, member never returns | Webhook is the authority; the redirect is cosmetic | Status advances regardless | None |
+| Secrets leakage | gitleaks over full history in CI; rotation runbook | Rotate + revoke — **exercised twice for real during the build** | Bounded by RLS |
+| Office edits a non-whitelisted Airtable field | Next sync + `sync_log` | Overwritten + logged (documented behavior, not surprise) | Momentary confusion, audited |
+
+**Chaos evidence.** One committed run ([`scripts/chaos/runs/cx20260706T2052.log`](scripts/chaos/runs/cx20260706T2052.log)) put 50 bookings through the *live* cloud pipeline — through a 90s consumer kill, an injected Airtable auth break, five Stripe replays, and duplicate Telegram approve-taps:
+
+```
+=== CHAOS RUN LOG — abridged excerpt (M3 evidence) ===
+Run ID: cx20260706T2052   Bookings: 50 (awaiting_deposit: 12, needs_review: 38)
+
+[PASS] A1: Airtable exactly-once
+  50 marker records for 50 bookings — missing: 0, duplicated: 0, outside chaos set: 0
+[PASS] A2: Outbox no-third-state
+  103 chaos outbox rows — limbo: 0, bookings with ZERO outbox rows: 0, dead-lettered: 43
+         [dead-letters fire a Telegram/email alert by design; A2 asserts no silent/limbo
+          rows — per-row alert delivery is a manual cross-check, not an automated assertion]
+[PASS] A3: No duplicate delivery
+  duplicate booking.created events: 0, duplicate (booking,to_status) transitions: 0
+[PASS] A4: Payment idempotency
+  2 Stripe-originated paid payments checked, 0 violations
+```
+
+**Bottom line: 0 lost, 0 duplicated across 50 bookings** — every one delivered exactly once through the injected failure.
+
+**A durability datapoint, read honestly.** The same run's submit→delivered timing was p50 ≈ 858s, p95 ≈ 2478s (~41 min). That is **not a performance number** — it folds in the 90s consumer kill and the ~25-minute injected auth outage. All 50 bookings had one corresponding Airtable record; 43 outbox events were dead-lettered. This does not show successful delivery on every integration leg. (The p95 ≤ 60s target for a *healthy* pipeline is a separate, un-load-tested claim; this run had zero load testing — it is one failure-injection run at demo volume, 50 bookings.)
+
+**Chaos found a real bug — which is what chaos day is for.** The run surfaced a genuine DLQ-semantics defect (**#23**): dead-lettering wasn't terminal. The consumer wrote the `dead_letters` row and fired the alert but left `processed_at` null, so the 60s sweep kept re-retrying past the 5-attempt threshold — rows reached attempts 19–22 and ~798 duplicate dead-letter rows piled up with repeated alerts. M3 still held (nothing lost, nothing silent — if anything, *louder* than intended), but the semantics are wrong. Fix is scoped as migration `0016` (a `dead_lettered_at` column + sweep filter) with a redrive runbook note. The design principle it validates: **loud, never silent.**
+
+**Evidence table (M1–M6).** Every claim links to a committed artifact.
+
+| Metric | Claim | Evidence |
+|---|---|---|
+| M1 | clone → running ≤ 10 min | [`README.md`](README.md) quickstart — the path is documented; the timed clean-clone stopwatch run is pending ship-out (see honest notes) |
+| M2 | submit → processed during injected outages | [chaos log](scripts/chaos/runs/cx20260706T2052.log) — annotated: the run includes a 90s consumer kill and a ~25-min auth outage; the run is not a healthy-pipeline latency benchmark |
+| M3 | **0 lost, 0 duplicated** across 50 bookings under injected failure | [chaos log](scripts/chaos/runs/cx20260706T2052.log): A1 exactly-once · A2 no third state · A3 no duplicate delivery · A4 payments ledger-verified |
+| M4 | owner decision ≤ 2 taps | Telegram Approve is 1 tap; duplicate delivery + double-tap no-op proven in the chaos run (exactly one audit row) |
+| M5 | golden ≥ 90%, 100% containment | CI `golden` job over [`tests/golden/intake.json`](tests/golden/intake.json) — target ≥90% overall with all marked containment cases passing; temperature pinned to 0 to reduce sampling variation (root cause: an unset temperature defaulted to 1.0, so borderline confidences flipped across the 0.8 gate at random — the set had been flaky-green; a later slow-API day cost only latency fallbacks, now decoupled from the gate — #25) |
+| M6 | every payment transition traceable to a verified stored event | `stripe_events` ledger + [webhook suite](tests/webhooks/stripe.test.ts) + chaos A4 |
+
+---
+
+## Honest notes
+
+- **Fictional client, fabricated data.** Sailfish Pool Care is invented; every member, address, and number is fabricated. There is **no client or third-party PII** in the repo. By design, the author's own name, domain, and email *do* appear where they must (LICENSE, alert routing) — the honest claim is "no client or third-party PII," not "no real PII anywhere." A pre-tag pass caught the real email hardcoded in two n8n workflows and parameterized it.
+- **Solo, pairing with Claude Code — stated as a strength.** The human owned the discovery, the architecture, the invariants (the "never-cut list"), and every review; the AI accelerated the typing. The value shows in what review *caught*: a `redirect()` inside a `try/catch` that swallowed `NEXT_REDIRECT`, a discarded `payments.insert` error that would have sent a member to Stripe with nothing for the webhook to flip, a status page that rendered the AI acknowledgment only for `needs_review` (hiding it on the whole happy path), and an internal sprint marker ("Day 8") that reached a Telegram reply. Those are in [`docs/log.md`](docs/log.md), not swept under it.
+- **A pre-agreed cut, honored.** The member-email leg (C3, third on the ordered cut list) was never built — taken deliberately rather than slipping a gate, recorded on Day 8, and the chaos log states the *adapted* A3 assertion instead of pretending. Telegram + portal status remain the member-facing channels.
+- **Named deferrals.** The Telegram bot *refuses and logs* unauthorized chats but does not yet rate-limit or alert on them (R7's last clause — a v1.5 hardening). A Day-1 Replit spike was cut once the real edge function was proven live, so there is no Repl link to show. Both are named in the log so a reviewer doesn't have to catch them.
+- **Ship-out still pending.** Gates 1–3a are closed, but v1.0 isn't tagged yet: the Loom recording, the git tag, the timed clean-clone (M1) stopwatch run, and a non-author reviewer walk all remain. The status line at the top says so, and this page gets its Loom embed and tag link when those are real — not before.
+- **Real incidents.** Two secrets were rotated for real (the Telegram bot token after it appeared in a shared n8n log excerpt; the Stripe test key, the build's first rotation, after it crossed a chat surface during env setup). The Railway↔Telegram TCP flake (#20) is real, tracked, and mitigated (retry → dead-letter → Resend email fallback). And chaos day found #23, above.
+
+---
+
+## Run it yourself + repo
+
+**The local reviewer path** — target ≤ 10 minutes; the timed clean-clone stopwatch run is still pending ship-out (prereqs: Node 20+, Docker, Supabase CLI):
+
+```bash
+npm install
+supabase start
+supabase db reset           # migrations 0001–0015 + seed.sql: a full demo world
+cp .env.example .env.local  # fill the Supabase block from `supabase start` output
+npm run dev                 # http://localhost:3000
+```
+
+Sign in with a **seeded member email**; the magic link lands in **Mailpit** (its URL is printed by `supabase start`). Add `ANTHROPIC_API_KEY` for real triage — without it, intake still works: every request routes to `needs_review` with the holding reply, which *is* the designed fallback, not a degraded mode. The money path locally needs Stripe CLI forwarding (documented in the README).
+
+**Read the code behind the claims:**
+
+- [`supabase/migrations/0005_rls.sql`](supabase/migrations/0005_rls.sql) — member isolation lives here, not in UI filters (exercised by an 18-test adversarial RLS suite).
+- [`supabase/migrations/0008_transition_booking.sql`](supabase/migrations/0008_transition_booking.sql) — the `transition_booking()` RPC: actor + status write share one transaction, so the audit records who acted via which channel.
+- [`supabase/functions/stripe-webhook/`](supabase/functions/stripe-webhook) — signature verification + the `stripe_events` idempotency ledger; the webhook is the sole payment authority.
+- [`lib/triage/schema.ts`](lib/triage/schema.ts) — the output schema and routing rules; free-text drafts still require staff review.
+- [`tests/golden/intake.json`](tests/golden/intake.json) + [`tests/golden/golden.test.ts`](tests/golden/golden.test.ts) — the 20-case golden set (including two prompt-injection attempts) that gates every prompt change in CI.
+
+Full narrative: [`docs/log.md`](docs/log.md) — the build as it actually happened, incidents included.
+
+*Contact — Kristen Martino, krissi889@gmail.com.*

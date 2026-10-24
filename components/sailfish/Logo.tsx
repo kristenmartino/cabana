@@ -18,7 +18,3 @@ export function SailfishLogo({ className = "" }: { className?: string }) {
     </div>
   );
 }
-
-export function WaveDivider({ className = "" }: { className?: string }) {
-  return <div aria-hidden="true" className={`wave-divider ${className}`} />;
-}

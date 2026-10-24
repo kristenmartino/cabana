@@ -26,7 +26,7 @@ const inter = Inter({
 export const metadata = {
   title: "Sailfish Pool Care",
   description:
-    "Request service, track repairs in real time, and manage your pool service online. Your Sailfish Pool Care member portal.",
+    "Report a pool problem, check request status, and pay repair deposits. Your Sailfish Pool Care member portal.",
 };
 
 export const viewport = {

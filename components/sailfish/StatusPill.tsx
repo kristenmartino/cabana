@@ -19,42 +19,19 @@ const sizes: Record<Size, string> = {
   md: "px-3 py-1.5 text-xs",
 };
 
-// Tones that represent an in-flight state get a gently pulsing dot so the eye is
-// drawn to the thing that's actively moving. `pulse` defaults to auto: on for
-// scheduled/review/deposit (live), off for done/info (settled).
-const livingTones: Record<Tone, boolean> = {
-  scheduled: true,
-  review: true,
-  deposit: true,
-  done: false,
-  info: false,
-};
-
 export function StatusPill({
   tone = "info",
   size = "sm",
-  pulse,
   children,
 }: {
   tone?: Tone;
   size?: Size;
-  pulse?: boolean;
   children: ReactNode;
 }) {
-  const isLiving = pulse ?? livingTones[tone];
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full font-semibold uppercase tracking-wide ${sizes[size]} ${tones[tone]}`}
+      className={`inline-flex shrink-0 items-center rounded-md font-semibold uppercase tracking-wide ${sizes[size]} ${tones[tone]}`}
     >
-      <span className="relative inline-flex h-1.5 w-1.5">
-        {isLiving && (
-          <span
-            aria-hidden
-            className="pulse-ring absolute inset-0 rounded-full bg-current"
-          />
-        )}
-        <span className="relative inline-block h-1.5 w-1.5 rounded-full bg-current opacity-80" />
-      </span>
       {children}
     </span>
   );

@@ -1,0 +1,15 @@
+# Local secrets and development artifacts are never deployment inputs.
+.env
+.env.*
+node_modules
+.next
+.git
+.vercel
+.claude
+coverage
+out
+*.tsbuildinfo
+.DS_Store
+# Review screenshots and historical test output are not application assets.
+docs/qa
+scripts/chaos/runs
