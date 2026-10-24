@@ -910,3 +910,22 @@ acknowledgment and continues the retry path. Only the QA scheduling event was
 requeued for its corrected office projection; booking and payment facts stayed
 unchanged. Consumer dead-lettering is an operator-review path; it does not itself
 send an alert, so the case study no longer claims that it does.
+
+### October 24, 2026 — Telegram transport and provider receipts
+
+Repeated requests from Railway to Telegram failed while the private Supabase
+route passed six consecutive bot-identity probes. Added `telegram-notify` with
+JWT verification, service-role-only authorization, one allowlisted owner,
+a 45-second delivery lease and an eight-second provider timeout. A successful
+Telegram message ID is required before delivery is marked. n8n retains retry
+orchestration and uses its existing Supabase credential; its four Telegram nodes
+now call this route. Member and anonymous callers cannot send notifications.
+
+Events 2613 and 2617 were explicitly requeued and acknowledged as Telegram
+messages 732 and 733. Original timeout records remain, with resolution times.
+A new fictional browser request completed a $75 Stripe sandbox payment; all
+three events reached Telegram (734–736), Airtable held exactly one row at the
+current booking status, and replaying delivered events returned the same
+receipts without another send. Public health returned 200 with zero backlog
+and zero dead-lettered events. Approval and visit time remained pending in the
+member UI. Existing schedules and cleanup were restored after verification.
