@@ -43,7 +43,7 @@ export function Landing() {
 
           <Link
             href="/sign-in"
-            className="mt-4 font-semibold text-lagoon underline-offset-4 hover:underline"
+            className="mt-4 inline-flex min-h-11 items-center rounded-lg font-semibold text-lagoon underline-offset-4 hover:underline"
           >
             Sign in to your account
           </Link>

@@ -23,7 +23,7 @@ export default function NewRequest() {
 
   return (
     <AppShell>
-      <Link href="/" className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-deepwater">
+      <Link href="/" className="inline-flex min-h-11 items-center gap-1 rounded-lg text-sm font-medium text-muted-foreground hover:text-deepwater">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
           <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>

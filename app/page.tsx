@@ -94,8 +94,8 @@ export default async function Home() {
                 href={`/request/${r.id}`}
                 className="block rounded-xl border border-border bg-card p-4 transition-colors duration-150 hover:border-lagoon"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-[15px] font-medium leading-snug text-deepwater">{r.summary}</p>
+                <div className="flex flex-col items-start gap-2 sm:flex-row sm:justify-between sm:gap-3">
+                  <p className="min-w-0 [overflow-wrap:anywhere] text-[15px] font-medium leading-snug text-deepwater">{r.summary}</p>
                   <StatusPill tone={r.tone}>{r.label}</StatusPill>
                 </div>
                 <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
@@ -123,7 +123,7 @@ export default async function Home() {
                     <p className="truncate text-[15px] font-medium text-deepwater">{h.title}</p>
                     <span className="shrink-0 text-xs text-muted-foreground">{h.date}</span>
                   </div>
-                  {h.note && <p className="mt-0.5 text-sm text-muted-foreground">{h.note}</p>}
+                  {h.note && <p className="mt-0.5 [overflow-wrap:anywhere] text-sm text-muted-foreground">{h.note}</p>}
                 </div>
               </li>
             ))}
