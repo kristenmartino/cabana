@@ -841,3 +841,27 @@ stays authoritative (never-cut #3); they retry then dead-letter (→ email alert
 or recover on their own. Operational note: the Railway→Telegram ETIMEDOUT is
 infra (Railway egress ↔ Telegram), not app code — worth watching if owner pings
 go quiet. Traces: R5 / R8 / ADR-02 (delivery legs) / never-cut #3, #5 / follows #20.
+
+### October 24, 2026 — Member copy, recorded states, and visual cleanup
+
+Replaced the inferred five-step progress sequence with current booking facts and
+an assigned visit window when one exists. Auto-triage no longer implies that
+Dana reviewed a request, and a payment-triggered `scheduled` status without a
+window is shown as “Awaiting visit time.” AI acknowledgments remain stored as
+staff drafts rather than member-facing replies. Terminal states omit future
+progress. The weekly plan displays its regular day, without generating an
+appointment date. Removed response-time, text-message, and held-slot promises;
+clarified deposit and test-mode copy. Kept the sand/teal/coral palette and
+Fraunces headings while removing decorative motion, gradients, waves, shimmer,
+and elevated cards. README reliability claims now distinguish finite test
+results from guarantees. Corrected both portfolio diagrams and their PNG
+fallbacks to label Resend as operational alert fallback. Source portfolio copy
+was reconciled in place. Added regression coverage for missing visit windows,
+terminal states, DST rendering, hidden AI drafts, and unverified payment-return
+URLs. Typecheck, lint, 31 unit/render tests and a production build pass. Portfolio
+TypeScript, source lint, and Cabana MDX compilation pass. Authenticated desktop
+and 390px layouts were checked using actual components rendered with fictional
+test fixtures and production CSS (screenshots in `docs/qa/2026-10-24/`); local
+Supabase/Docker was stopped, so live RLS/payment integration suites were not run.
+No prompt, database migration, payment transition, or deployment changes.
+Traces: R1–R4 / R8 / ADR-05 / ADR-08; presentation amendment in `docs/01-prd.md`.

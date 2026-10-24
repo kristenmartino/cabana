@@ -1,0 +1,22 @@
+# Cabana — annotated screenshot strip
+
+Suggested screenshots of the public demo and authenticated member portal. Capture each frame from the **local seeded app** (`supabase db reset` gives a booking in every status), phone-width where the portal is shown. Under each image on the case-study page, use the caption verbatim — each ties the frame to the invariant behind it, not the UI.
+
+Never capture: raw UUIDs, blank Airtable fields, secrets/env panels, or anything mistakable for real PII (keep it obviously fictional — Jupiter FL, Dana, Marie, 555 numbers).
+
+| # | Capture | Filename | Caption (use verbatim) |
+|---|---|---|---|
+| 1 | The public landing and demo entry | `01-sign-in-gate.png` | The public landing provides a one-click session for a fictional demo member. Normal members use magic-link sign-in. |
+| 2 | A non-member email hitting the polite dead-end (no account, no error page) | `02-non-member-dead-end.png` | Membership is checked with the service role before any auth user exists. A non-member gets Dana's number — never an account, never an error page (R1 acceptance). |
+| 3 | Portal home greeting the demo member by fictional name; booking list with status pills | `03-portal-home.png` | Every read is RLS-scoped through the cookie-bound client, so isolation lives in the database, not these pills. The pills just map the status enum to plain language. |
+| 4 | Intake screen mid-type with a messy free-text repair | `04-intake-freetext.png` | Intake is free text on purpose — no forms shaped like the database. The model classifies the description and extracts equipment and symptoms. |
+| 5 | Status page: the member note, recorded request status, and deposit card | `05-triaged-deposit.png` | AI classification can route a repair to a deposit. The status page shows recorded facts; staff control approval and visit times. |
+| 6 | The needs_review holding state ("Your request is awaiting staff review.") | `06-needs-review.png` | The AI fallback is a first-class path, not a degraded mode. Any timeout, bad output, or ambiguous request routes here — a human takes it, and intake never throws. |
+| 7 | Stripe hosted Checkout in test mode with the 4242 card | `07-stripe-checkout.png` | Hosted Stripe Checkout in test mode — the card never touches our servers. The deposit is a fixed $75 that goes toward the repair, not an extra charge. |
+| 8 | Status page in the "Confirming your payment…" polling state | `08-confirming-payment.png` | The redirect is cosmetic. The page polls until the verified webhook event lands — payment truth is a recorded Stripe event, and replays are idempotent, so it can't double-book. |
+| 9 | Status page showing the recorded payment and request status | `09-scheduled-confirmed.png` | The recorded payment establishes receipt. A visit time is shown only when an assigned window exists; payment alone does not establish staff review or an appointment. |
+| 10 | Telegram: the booking ping with Approve / Needs info buttons, then the approved state | `10-telegram-approve.png` | The owner approves from the truck in one tap. Approval is idempotent — a double-tap no-ops to exactly one audit row. 'Needs info' is a v1 acknowledge-only stub. |
+| 11 | Airtable "This Week by Tech" Interface with fictional names; the two writable fields visible | `11-airtable-week-by-tech.png` | Airtable is a projection, not the source of truth. Only visit_notes and mark_completed write back, through a guarded edge function — everything else is overwritten on the next sync. |
+| 12 | The chaos log terminal card: the recorded assertions and dead-letter count | `12-chaos-log.png` | One failure-injection run produced 50 Airtable records for 50 bookings, with no duplicates. It also recorded 43 dead-lettered outbox events; delivery did not succeed on every leg. |
+| 13 | A green GitHub Actions run showing db / golden / gitleaks passing | `13-github-actions.png` | CI gates on a real local Supabase that refuses a vacuous suite, the live golden set (>=90%, 100% containment), and gitleaks over full history. The containment requirement applies to the marked cases in the finite test set. |
+| 14 | Optional deep-proof: a SQL console showing a booking_transitions or ai_events audit row | `14-audit-row.png` | Every status write goes through transition_booking, so the actor and the write share one transaction. This row records who acted, via which channel — the audit identifies the actor recorded for that transition. |

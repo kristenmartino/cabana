@@ -7,32 +7,14 @@ import "server-only";
 // StatusPill tone + label, etc.).
 import { createClient } from "@/lib/supabase/server";
 import type { Tone } from "@/components/sailfish/StatusPill";
+import { requestState } from "./request-state";
 
 const TZ = "America/New_York";
-
-const STATUS_META: Record<string, { tone: Tone; label: string }> = {
-  requested: { tone: "review", label: "Received" },
-  needs_review: { tone: "review", label: "Needs review" },
-  awaiting_deposit: { tone: "deposit", label: "Awaiting deposit" },
-  scheduled: { tone: "scheduled", label: "Scheduled" },
-  confirmed: { tone: "scheduled", label: "Confirmed" },
-  completed: { tone: "done", label: "Completed" },
-  cancelled: { tone: "info", label: "Cancelled" },
-  no_show: { tone: "info", label: "Missed" },
-};
-
-export function statusMeta(status: string): { tone: Tone; label: string } {
-  return STATUS_META[status] ?? { tone: "info", label: status };
-}
 
 const KIND_LABEL: Record<string, string> = {
   repair: "Repair",
   one_off_clean: "One-off clean",
   plan_visit: "Weekly service",
-};
-
-const WEEKDAY_INDEX: Record<string, number> = {
-  Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
 };
 
 function fmtDate(iso: string | null): string {
@@ -57,21 +39,8 @@ function windowStart(win: unknown): string | null {
   return m ? m[1] : null;
 }
 
-// Next calendar date (rendered in the business tz) matching the plan's weekly
-// service day. weekly_day: 0 = Sunday … 6 = Saturday.
-function nextServiceLabel(weeklyDay: number): string {
-  const wd = new Intl.DateTimeFormat("en-US", { timeZone: TZ, weekday: "short" });
-  const now = Date.now();
-  for (let i = 0; i <= 7; i++) {
-    const d = new Date(now + i * 86_400_000);
-    if (WEEKDAY_INDEX[wd.format(d)] === weeklyDay) {
-      return new Intl.DateTimeFormat("en-US", {
-        timeZone: TZ, weekday: "long", month: "short", day: "numeric",
-      }).format(d);
-    }
-  }
-  return "Coming up";
-}
+// The weekly plan is a recurring day, not an assigned appointment.
+const SERVICE_DAYS = ["Sundays", "Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays"];
 
 const OPEN_STATUSES = new Set([
   "requested", "needs_review", "awaiting_deposit", "scheduled", "confirmed",
@@ -114,7 +83,7 @@ export async function getHomeData(): Promise<HomeData | null> {
     | { name: string; weekly_day: number }
     | null;
   const nextService = plan
-    ? { dateLabel: nextServiceLabel(plan.weekly_day), planName: plan.name }
+    ? { dateLabel: SERVICE_DAYS[plan.weekly_day] ?? "Day not recorded", planName: plan.name }
     : null;
 
   const bookings = bookingsRes.data ?? [];
@@ -123,7 +92,7 @@ export async function getHomeData(): Promise<HomeData | null> {
     .map((b) => ({
       id: b.id,
       summary: b.request_text ?? KIND_LABEL[b.kind] ?? "Service request",
-      ...statusMeta(b.status),
+      ...requestState(b.status, b.window),
       submitted: fmtDateTime(b.created_at),
     }));
 
@@ -145,19 +114,6 @@ export async function getHomeData(): Promise<HomeData | null> {
   };
 }
 
-export type StepKey = "received" | "reviewed" | "deposit" | "scheduled" | "confirmed";
-
-const STATUS_STEP: Record<string, StepKey> = {
-  requested: "received",
-  needs_review: "reviewed",
-  awaiting_deposit: "deposit",
-  scheduled: "scheduled",
-  confirmed: "confirmed",
-  completed: "confirmed",
-  cancelled: "received",
-  no_show: "confirmed",
-};
-
 export type RequestStatusData = {
   id: string;
   requestText: string;
@@ -165,9 +121,9 @@ export type RequestStatusData = {
   tone: Tone;
   label: string;
   submitted: string;
-  currentStep: StepKey;
+  description: string;
+  visitWindow: string | null;
   deposit: { amount: number; status: string; due: boolean } | null;
-  ackDraft: string | null;
 };
 
 export async function getRequestStatus(id: string): Promise<RequestStatusData | null> {
@@ -175,7 +131,7 @@ export async function getRequestStatus(id: string): Promise<RequestStatusData | 
 
   const { data: booking } = await supabase
     .from("bookings")
-    .select("id, status, request_text, created_at, deposit_required, triage")
+    .select("id, status, request_text, created_at, deposit_required, window")
     .eq("id", id)
     .maybeSingle();
   if (!booking) return null; // RLS: not this member's booking (or doesn't exist)
@@ -190,7 +146,7 @@ export async function getRequestStatus(id: string): Promise<RequestStatusData | 
     .limit(1)
     .maybeSingle();
 
-  const meta = statusMeta(booking.status);
+  const meta = requestState(booking.status, booking.window);
   return {
     id: booking.id,
     requestText: booking.request_text ?? "",
@@ -198,7 +154,8 @@ export async function getRequestStatus(id: string): Promise<RequestStatusData | 
     tone: meta.tone,
     label: meta.label,
     submitted: fmtDateTime(booking.created_at),
-    currentStep: STATUS_STEP[booking.status] ?? "received",
+    description: meta.description,
+    visitWindow: meta.visitWindow,
     deposit: booking.deposit_required
       ? {
           amount: (payment?.amount_cents ?? 7500) / 100,
@@ -206,8 +163,6 @@ export async function getRequestStatus(id: string): Promise<RequestStatusData | 
           due: booking.status === "awaiting_deposit" && (payment?.status ?? "pending") === "pending",
         }
       : null,
-    ackDraft:
-      (booking.triage as { member_ack_draft?: string | null } | null)?.member_ack_draft ?? null,
   };
 }
 

@@ -2,21 +2,24 @@
 
 Member portal + operations layer for **Sailfish Pool Care** — a fictional
 3-tech residential pool service company in Jupiter, FL. Real system, invented
-client: every name, address, and number in this repo is fabricated for
-demonstration. No real PII exists anywhere in it.
+client: member names, addresses, and service records are fabricated for
+demonstration. The repository also contains the author’s project documentation.
 
-**The spine:** a member describes a problem in their own words → Claude Haiku
-triages it (confidence-gated, structurally unable to promise price or time) →
-qualified repairs collect a $75 deposit via Stripe Checkout (webhook-authoritative,
-idempotent) → the owner approves with one tap from Telegram → the office runs
-the week from an Airtable projection → a transactional outbox + n8n guarantee
-that **no side effect is ever silently dropped**.
+Members submit requests through the portal. Claude Haiku classifies each request
+and drafts an acknowledgment for staff. Application rules route repairs to a
+$75 Stripe test deposit or send the request to review. Staff control approval
+and visit times. Booking changes create outbox events for n8n to update Airtable
+and notify the owner. Failed deliveries are retried or recorded in a dead-letter
+queue for follow-up.
+
+The member interface shows recorded request and payment states. It does not
+present AI acknowledgments as staff replies or infer a human review from triage.
+A weekly plan day is shown separately from an assigned visit window.
 
 Stack: Next.js 15 (Vercel) · Supabase (Postgres/Auth/RLS/Edge Functions) ·
 Stripe · n8n (Railway) · Airtable · Telegram Bot API · Claude Haiku · Resend.
 
-**Status: `v1.0` — tagged.** Gates 1, 2, and 3a (chaos) are closed, every claim
-below links to committed evidence, and the portal is **live with a one-click
+**Status: `v1.0` — tagged.** Gates 1, 2, and 3a (chaos) are closed, the portal has **a one-click
 public demo** — enter as a seeded member (fictional data, Stripe in test mode),
 no sign-up. A walkthrough Loom and the Claude Desktop hour are optional
 follow-up assets, not release gates.
@@ -26,35 +29,37 @@ narrative (decisions, surprises, incidents, deliberate omissions) is
 
 ## Failure modes & production notes
 
-The table a reviewer should read first — "Detection" is the column amateur
-builds leave blank. (Source: [`docs/02-architecture.md`](docs/02-architecture.md) §6;
+Detection and handling for the integration failure paths. (Source: [`docs/02-architecture.md`](docs/02-architecture.md) §6;
 the chaos run exercised most of these live.)
 
-| Failure | Detection | Handling | Worst case after handling |
+| Failure | Detection | Handling | Remaining limitation / recorded result |
 |---|---|---|---|
-| Stripe webhook endpoint down | Stripe dashboard + reconciliation vs. `payments.pending` age alert | Stripe retries ~72h; idempotent processing on recovery | Payment confirmation delayed; never wrong |
-| Duplicate / out-of-order Stripe events | `stripe_events` PK conflict | Conflict → ack 200, skip; state machine ignores stale transitions | None — **replayed 5× live in the chaos run, zero effects** |
-| n8n down | Health-check probe (outbox depth + oldest-unprocessed age → 503 → alert) | Outbox holds everything; sweep drains on recovery | Notifications delayed, none lost — **killed live for 90s mid-run, backlog of 48 drained clean** |
-| Airtable API failure / auth break | Workflow error path + per-row `last_error` | Backoff retries → dead-letter + Telegram alert; nightly reconciliation catches residue | Office view stale, flagged — **a 60s injected auth break accidentally became ~25 min; deliveries still landed exactly-once** |
+| Stripe webhook endpoint down | Stripe dashboard + reconciliation vs. `payments.pending` age alert | Stripe retries ~72h; idempotent processing on recovery | Payment confirmation can be delayed; unresolved payments require reconciliation |
+| Duplicate / out-of-order Stripe events | `stripe_events` PK conflict | Conflict → ack 200, skip; state machine ignores stale transitions | No duplicate updates observed in the recorded replay test |
+| n8n down | Health-check probe (outbox depth + oldest-unprocessed age → 503 → alert) | Outbox holds everything; sweep drains on recovery | Deliveries delayed; the recorded run stopped the consumer for 90s and drained the backlog after recovery |
+| Airtable API failure / auth break | Workflow error path + per-row `last_error` | Backoff retries → dead-letter + Telegram alert; nightly reconciliation catches residue | Office view can be stale; the recorded run produced 50 Airtable records for 50 bookings after an approximately 25-minute auth outage |
 | Telegram API down | Send-step error path; alert channel falls back to **Resend email** | Retry, then dead-letter the Telegram leg *alone* + alert — the delivery legs are decoupled ([#20](https://github.com/kristenmartino/cabana/issues/20)), so the Airtable projection already landed | Owner ping delayed / in DLQ; office view unaffected — the Railway↔Telegram flake is real, tracked, and now contained |
-| AI timeout / malformed output | zod + 2s budget, `ai_events.outcome` | `needs_review` + holding reply; the member flow cannot throw on a model failure | Human triage — the old normal. **Proven both directions in prod** (missing key day, and 5 key-stripped bookings in the chaos run) |
-| Prompt injection in member text | Golden set: 100% containment enforced in CI, deterministically (temp 0) | Draft-only authority: the worst output is a bad *draft* that can't commit anything | Odd text in a review queue |
-| Double-booking race | DB `gist` exclusion constraint | Second writer gets a structured conflict | None |
-| DST transition | [`tests/dst/`](tests/dst/dst.test.ts) pins both 2026 boundaries | UTC storage; `America/New_York` applied only at render; range math in SQL | None |
-| Deposit paid, member never returns | Webhook is the authority; the redirect is cosmetic | Status advances regardless | None |
-| Secrets leakage | gitleaks over full history in CI; rotation runbook below | Rotate + revoke — **exercised twice for real during the build** (Stripe test key, Telegram bot token) | Bounded by RLS |
+| AI timeout / malformed output | zod + 2s budget, `ai_events.outcome` | `needs_review` + holding reply; the member flow cannot throw on a model failure | Staff review; missing-key fallback was exercised during the build and recorded chaos run |
+| Prompt injection in member text | CI requires all marked containment cases to pass | Application limits routing to review or a repair deposit; AI drafts are kept off member status pages | Misclassification can still produce an inappropriate deposit request; tests cover a finite set of cases |
+| Double-booking race | DB `gist` exclusion constraint | Second writer gets a structured conflict | Conflicting assignment must be rescheduled |
+| DST transition | [`tests/dst/`](tests/dst/dst.test.ts) pins both 2026 boundaries | UTC storage; `America/New_York` applied only at render; range math in SQL | Fixtures cover the tested boundaries |
+| Deposit paid, member never returns | Webhook is the authority; the redirect is cosmetic | Status advances when a verified webhook is processed | Webhook processing may be delayed |
+| Secrets leakage | gitleaks over full history in CI; rotation runbook below | Rotate + revoke — **exercised twice for real during the build** (Stripe test key, Telegram bot token) | RLS does not protect against a leaked service-role key; revocation is required |
 | Office edits a non-whitelisted Airtable field | Next sync + `sync_log` | Overwritten + logged (documented behavior, not surprise) | Momentary confusion, audited |
 
 ## Evidence (M1–M6)
 
 | Metric | Claim | Evidence |
 |---|---|---|
-| M1 | clone → running ≤ 10 min | Quickstart below |
-| M2 | submit → owner ping p95 | [chaos log](scripts/chaos/runs/cx20260706T2052.log) — annotated: the run includes a 90s consumer kill and a ~25-min auth outage; the guarantee under test is delivery |
-| M3 | **0 lost, 0 duplicated** across 50 bookings under injected failure | [chaos log](scripts/chaos/runs/cx20260706T2052.log): A1 50/50 Airtable exactly-once · A2 zero limbo, zero silent · A3 zero duplicates · A4 payments ledger-verified |
+| M1 | Local setup target: ≤ 10 min | Quickstart below; a timed clean-clone run is not recorded here |
+| M2 | submit → processed p50 858.5s, p95 2478s | [Recorded chaos log](scripts/chaos/runs/cx20260706T2052.log), including injected outages; this is not a healthy-pipeline latency benchmark |
+| M3 | 50/50 Airtable records, no duplicate records | [Recorded chaos log](scripts/chaos/runs/cx20260706T2052.log): 103 outbox rows, 43 dead-lettered, none left in limbo; no duplicate booking-created events or status transitions |
 | M4 | owner decision ≤ 2 taps | Telegram Approve is 1 tap; duplicate delivery + double-tap no-op proven in the chaos run (exactly one audit row) |
-| M5 | golden ≥ 90%, 100% containment | CI `golden` job — deterministic since [#15](https://github.com/kristenmartino/cabana/pull/15): the flake was sampling randomness (temperature previously unset → 1.0, borderline confidences flipped across the 0.8 gate at random); pinned to temperature 0 + prompt v2 hardening |
+| M5 | CI target: ≥90% overall; all marked containment cases pass | [20-case golden suite](tests/golden/golden.test.ts); temperature 0 reduces sampling variation but does not establish deterministic behavior or general containment |
 | M6 | every payment transition traceable to a verified stored event | `stripe_events` ledger + [webhook suite](tests/webhooks/stripe.test.ts) + chaos A4 |
+
+These results describe one recorded run at demo volume. They do not establish
+production reliability, universal prompt-injection containment, or load capacity.
 
 ## Start here
 
@@ -75,7 +80,7 @@ Prereqs: Node 20+, Docker, [Supabase CLI](https://supabase.com/docs/guides/cli).
 ```bash
 npm install
 supabase start
-supabase db reset           # migrations 0001–0017 + seed.sql: a full demo world
+supabase db reset           # migrations + seed.sql: a full demo world
 cp .env.example .env.local  # fill the Supabase block from `supabase start` output
 npm run dev                 # http://localhost:3000
 ```
@@ -135,7 +140,7 @@ the Stripe test key as the first rotation (Day 8 records the origin).
 
 ## Cost notes (what this actually runs on)
 
-Supabase free tier (the 5-min health probe doubles as keep-warm) · Vercel
+Supabase paid-org project (ADR-09 records $10/mo compute at setup) · Vercel
 Hobby · Railway ~$5/mo for n8n (chosen over n8n Cloud specifically because the
 chaos test needs a kill switch) · Stripe test mode $0 · Airtable free tier ·
 Telegram $0 · Resend free tier (100/day) · Anthropic: Haiku triage at
@@ -148,7 +153,7 @@ hundred requests.
 docs/                 discovery → PRD → architecture → ADRs → build plan · execution plan · log
 supabase/migrations/  0001–0006 schema/outbox/RLS · 0008 transition_booking · 0012 member intake
                       0013 apply_triage · 0014 deposit expiry · 0015 get_schedule
-                      0016 rate_limit · 0017 reset_demo_member (17 total)
+                      0016 rate_limit · 0017 reset_demo_member · 0018–0019 delivery fixes
 supabase/seed.sql     the demo world (fixed UUIDs, a booking in every status)
 supabase/functions/   stripe-webhook · telegram-webhook (/today /week /cancel /brief) · airtable-writeback
 lib/triage/           zod schema + routing policy · Haiku caller (2s budget, temp 0, fallback-first)
@@ -163,7 +168,7 @@ docs/marie-console.md the office console guide (one page, non-technical)
 CLAUDE.md             conventions + never-cut list for Claude Code sessions
 ```
 
-## Honest notes
+## Demo scope and limitations
 
 - The client is fictional; the failure modes are not. Two secrets really were
   rotated, a real Railway↔Telegram network flake is tracked and mitigated
@@ -180,8 +185,7 @@ CLAUDE.md             conventions + never-cut list for Claude Code sessions
   function was proven live, so there's no Repl link to show. Both are in the
   log, not swept under it.
 - Open follow-ups live in the issue tracker; parked ideas in
-  [`docs/parking-lot.md`](docs/parking-lot.md). Nothing was silently dropped —
-  that rule applied to the project as much as to the pipeline.
+  [`docs/parking-lot.md`](docs/parking-lot.md). Deferred work and operational limitations are recorded there.
 
 ## License
 

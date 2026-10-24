@@ -1,277 +1,91 @@
-import type { CSSProperties } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/sailfish/AppShell";
 import { StatusPill } from "@/components/sailfish/StatusPill";
-import { getRequestStatus, type StepKey } from "@/lib/portal/data";
+import { getRequestStatus } from "@/lib/portal/data";
 import { PayDepositButton } from "@/components/portal/PayDepositButton";
 import { AwaitingPaymentRefresh } from "@/components/portal/AwaitingPaymentRefresh";
+import { SUPPORT } from "@/lib/brand";
 
-type CSSVars = CSSProperties & Record<`--${string}`, string | number>;
-
-type StepState = "done" | "current" | "todo";
-
-// Each step carries tense-aware copy so an upcoming step never claims something
-// that hasn't happened yet ("Dana checked it over" before she has). todo = future,
-// current = in-progress, done = past.
-const STEPS: { key: StepKey; title: string; hint: Record<StepState, string> }[] = [
-  {
-    key: "received",
-    title: "Received",
-    hint: {
-      todo: "We'll confirm your note landed.",
-      current: "We've got your note.",
-      done: "We've got your note.",
-    },
-  },
-  {
-    key: "reviewed",
-    title: "Reviewed",
-    hint: {
-      todo: "Dana will check it over.",
-      current: "Dana's checking it over.",
-      done: "Dana checked it over.",
-    },
-  },
-  {
-    key: "deposit",
-    title: "Deposit",
-    hint: {
-      todo: "A deposit will hold your spot.",
-      current: "Your deposit holds your spot.",
-      done: "Deposit's in — your spot is held.",
-    },
-  },
-  {
-    key: "scheduled",
-    title: "Scheduled",
-    hint: {
-      todo: "We'll pick the soonest slot.",
-      current: "Finding the soonest slot.",
-      done: "We picked the soonest slot.",
-    },
-  },
-  {
-    key: "confirmed",
-    title: "Confirmed",
-    hint: {
-      todo: "Tech and time to follow.",
-      current: "Locking in your tech and time.",
-      done: "Tech and time locked in.",
-    },
-  },
-];
-
-const SUPPORT = { name: "Dana", phone: "(561) 555-0100" };
-
-export default async function RequestStatus({
-  params,
-  searchParams,
-}: {
+export default async function RequestStatus({ params, searchParams }: {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ paid?: string }>;
 }) {
   const { id } = await params;
-  const resolved = await searchParams;
-  const isPaid = resolved.paid ? true : false;
+  const { paid } = await searchParams;
   const req = await getRequestStatus(id);
-  if (!req) notFound(); // RLS-scoped: not this member's booking, or unknown id
-
-  const currentIdx = STEPS.findIndex((s) => s.key === req.currentStep);
+  if (!req) notFound();
+  // The return URL requests a refresh; only the payment record establishes receipt.
+  const confirming = paid === "1" && req.deposit?.due;
   const telHref = `tel:${SUPPORT.phone.replace(/[^\d]/g, "")}`;
 
   return (
     <AppShell>
-      <Link href="/" className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-deepwater">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-          <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-        Back to home
+      <Link href="/" className="text-sm font-medium text-muted-foreground hover:text-deepwater">
+        ← Back to home
       </Link>
-
-      <div className="mt-3 flex items-start justify-between gap-3">
-        <div>
-          <h1 className="font-display text-[length:var(--text-h1)] leading-tight font-bold text-deepwater">Your request</h1>
-          <p className="mt-1 text-xs text-muted-foreground">Sent {req.submitted}</p>
-        </div>
-        <StatusPill tone={req.tone} size="md">{req.label}</StatusPill>
+      <div className="mt-4">
+        <h1 className="font-display text-[length:var(--text-h1)] font-bold text-deepwater">Your request</h1>
+        <p className="mt-1 text-xs text-muted-foreground">Sent {req.submitted}</p>
       </div>
 
-      {/* Quoted note */}
       {req.requestText && (
-        <blockquote className="rise-sm mt-5 rounded-2xl bg-card p-5 shadow-card" style={{ "--delay": "80ms" } as CSSVars}>
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-              <path d="M7 7h4v4H7c0 3 1 5 4 6M15 7h4v4h-4c0 3 1 5 4 6" stroke="var(--color-lagoon)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            You wrote
-          </div>
-          <p className="mt-2 font-display text-[19px] leading-snug text-deepwater">
-            &ldquo;{req.requestText}&rdquo;
-          </p>
+        <blockquote className="mt-5 border-l-2 border-lagoon pl-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">You wrote</p>
+          <p className="mt-2 text-[15px] leading-relaxed text-deepwater">{req.requestText}</p>
         </blockquote>
       )}
 
-      {/* Needs-review holding message (the honest "Dana will text you") */}
-      {req.status === "needs_review" && (
-        <section className="rise-sm mt-5 rounded-2xl bg-card p-5 shadow-card" style={{ "--delay": "140ms" } as CSSVars}>
-          <p className="font-display text-lg font-semibold text-deepwater">
-            {req.ackDraft ? "We're looking into this." : "Thanks — we've got your note."}
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {req.ackDraft ?? `${SUPPORT.name} will text you shortly to sort out the details.`}
-          </p>
-        </section>
-      )}
+      <section className="mt-6 border-y border-border py-5" aria-labelledby="request-status">
+        <h2 id="request-status" className="mb-3 font-display text-xl font-semibold text-deepwater">Request status</h2>
+        <StatusPill tone={req.tone} size="md">{req.label}</StatusPill>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{req.description}</p>
+        {req.visitWindow && (
+          <dl className="mt-4 text-sm">
+            <dt className="font-semibold text-deepwater">Visit window</dt>
+            <dd className="mt-1 text-muted-foreground">{req.visitWindow}</dd>
+          </dl>
+        )}
+      </section>
 
-      {/* The AI-drafted acknowledgment for a qualified request (R2). Shown for
-          any non-review status that carries one — the deposit card follows. */}
-      {req.status !== "needs_review" && req.ackDraft && (
-        <section className="rise-sm mt-5 rounded-2xl bg-card p-5 shadow-card" style={{ "--delay": "140ms" } as CSSVars}>
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-lagoon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-              <path d="M12 3l2.2 4.9L19.5 9l-3.8 3.4L16.6 18 12 15.3 7.4 18l.9-5.6L4.5 9l5.3-1.1z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-            </svg>
-            Triaged
-          </div>
-          <p className="mt-2 text-[15px] leading-relaxed text-deepwater">{req.ackDraft}</p>
-        </section>
-      )}
-
-      {/* Deposit due */}
       {req.deposit?.due && (
-        <section className="rise-sm shimmer relative mt-5 overflow-hidden rounded-3xl bg-gradient-to-br from-[color-mix(in_oklab,var(--color-coral)_12%,white)] to-[color-mix(in_oklab,var(--color-coral)_22%,white)] p-6 shadow-card ring-1 ring-inset ring-[color-mix(in_oklab,var(--color-coral)_28%,transparent)]" style={{ "--delay": "160ms" } as CSSVars}>
-          {isPaid && req.status === "awaiting_deposit" ? (
+        <section className="mt-6 rounded-xl border border-border bg-card p-5">
+          {confirming ? (
             <>
               <AwaitingPaymentRefresh />
-              {/* Moving sheen signals "working on it" while the webhook lands. */}
-              <span aria-hidden className="shimmer-sheen pointer-events-none absolute inset-0" />
-              <div className="relative flex items-center gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/70">
-                  <span className="breathe h-2.5 w-2.5 rounded-full bg-coral" />
-                </span>
-                <h2 className="font-display text-xl font-semibold text-deepwater">
-                  Confirming your payment…
-                </h2>
-              </div>
-              <p className="relative mt-2 text-sm text-deepwater/80">
-                This updates automatically once your bank confirms — the page is safe to close.
+              <h2 className="font-display text-xl font-semibold text-deepwater" role="status">Confirming your payment…</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                This page updates when the payment is recorded. You can close it and check back later.
               </p>
             </>
           ) : (
             <>
-              <h2 className="font-display text-xl font-semibold text-deepwater">
-                One quick step — your deposit
-              </h2>
-              <p className="mt-2 text-sm text-deepwater/80">
-                Your spot is held until the deposit is in. It goes toward the repair — you&apos;re not
-                paying extra.
+              <h2 className="font-display text-xl font-semibold text-deepwater">Repair deposit: ${req.deposit.amount}</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                The deposit goes toward your repair. A visit time will be confirmed separately.
               </p>
               <PayDepositButton bookingId={req.id} amount={req.deposit.amount} />
-              <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-xs text-deepwater/70">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
-                  <path d="M6 11V8a6 6 0 1112 0v3M5 11h14v9a1 1 0 01-1 1H6a1 1 0 01-1-1z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                Secure checkout — powered by Stripe.
-              </p>
+              <p className="mt-2 text-center text-xs text-muted-foreground">Stripe checkout · test mode. No real payment is collected.</p>
             </>
           )}
         </section>
       )}
 
-      {/* Deposit paid */}
-      {req.deposit?.status === "paid" && (
-        <section className="rise-sm mt-5 flex items-start gap-3 rounded-2xl bg-[color-mix(in_oklab,var(--color-success)_15%,white)] p-5 ring-1 ring-inset ring-[color-mix(in_oklab,var(--color-success)_28%,transparent)]" style={{ "--delay": "160ms" } as CSSVars}>
-          <span className="pop-in mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-success text-white">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-              <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </span>
-          <div>
-            <p className="font-display text-lg font-semibold text-deepwater">Deposit received — thank you!</p>
-            <p className="mt-1 text-sm text-deepwater/80">
-              We&apos;re locking in the soonest visit and will text you a time.
-            </p>
-          </div>
+      {req.deposit && ["paid", "refunded", "expired"].includes(req.deposit.status) && (
+        <section className="mt-6 border-b border-border pb-5">
+          <h2 className="font-display text-xl font-semibold text-deepwater">
+            {req.deposit.status === "paid" ? "Deposit received" : req.deposit.status === "refunded" ? "Deposit refunded" : "Deposit checkout expired"}
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            ${req.deposit.amount} · {req.deposit.status === "paid" ? "Recorded payment" : "Payment status"} · Stripe test mode
+          </p>
         </section>
       )}
 
-      {/* Stepper — the signature moment. Done segments draw their connector line
-          on load; the current node breathes; completed checks pop in. */}
-      <section className="mt-8">
-        <h2 className="font-display text-[length:var(--text-h2)] font-semibold text-deepwater">Progress</h2>
-        <ol className="mt-4 space-y-0" style={{ "--stagger-step": "90ms" } as CSSVars}>
-          {STEPS.map((step, i) => {
-            const state = i < currentIdx ? "done" : i === currentIdx ? "current" : "todo";
-            const isLast = i === STEPS.length - 1;
-            return (
-              <li
-                key={step.key}
-                className="rise-sm relative flex gap-4 pb-6 last:pb-0"
-                style={{ "--i": i } as CSSVars}
-              >
-                {!isLast && (
-                  <>
-                    {/* Base rail (always there) + drawn fill (done only). */}
-                    <span aria-hidden className="absolute left-[15px] top-8 h-full w-[2px] bg-border" />
-                    {state === "done" && (
-                      <span
-                        aria-hidden
-                        className="draw-line absolute left-[15px] top-8 h-full w-[2px] origin-top bg-lagoon"
-                        style={{ "--delay": `${300 + i * 90}ms` } as CSSVars}
-                      />
-                    )}
-                  </>
-                )}
-                <div className="relative z-10 mt-0.5">
-                  {state === "done" && (
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-lagoon text-lagoon-foreground shadow-[0_2px_8px_-2px_color-mix(in_oklab,var(--color-lagoon)_60%,transparent)]">
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        aria-hidden
-                        className="pop-in"
-                        style={{ "--delay": `${360 + i * 90}ms` } as CSSVars}
-                      >
-                        <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </div>
-                  )}
-                  {state === "current" && (
-                    <div className="pulse-coral flex h-8 w-8 items-center justify-center rounded-full bg-coral text-coral-foreground ring-4 ring-[color-mix(in_oklab,var(--color-coral)_25%,transparent)]">
-                      <span className="breathe h-2 w-2 rounded-full bg-white" />
-                    </div>
-                  )}
-                  {state === "todo" && (
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-border bg-card text-xs font-semibold text-muted-foreground">
-                      {i + 1}
-                    </div>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1 pt-0.5">
-                  <p className={`text-[15px] font-semibold ${state === "todo" ? "text-muted-foreground" : "text-deepwater"}`}>
-                    {step.title}
-                    {state === "current" && (
-                      <span className="ml-2 text-xs font-medium uppercase tracking-wide text-coral">In progress</span>
-                    )}
-                  </p>
-                  <p className="mt-0.5 text-sm text-muted-foreground">{step.hint[state]}</p>
-                </div>
-              </li>
-            );
-          })}
-        </ol>
-      </section>
-
-      <div className="mt-8 rounded-2xl bg-card p-4 text-sm text-muted-foreground shadow-card">
-        Questions? Text {SUPPORT.name} at{" "}
-        <a href={telHref} className="font-semibold text-lagoon underline-offset-4 hover:underline">
-          {SUPPORT.phone}
-        </a>
-        .
-      </div>
+      <p className="mt-8 text-sm text-muted-foreground">
+        Questions? Call {SUPPORT.name} at{" "}
+        <a href={telHref} className="font-semibold text-deepwater hover:underline">{SUPPORT.phone}</a>.
+      </p>
     </AppShell>
   );
 }

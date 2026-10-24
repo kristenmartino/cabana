@@ -178,3 +178,16 @@ Honest framing: this is a demo with fictional users, so metrics are **verifiable
 ## 11. Phasing & timeline
 
 10 working days, three gates — walking skeleton (Day 2), money path proven (Day 6), chaos-clean + demo-ready (Day 10). Full sequencing, tool assignments, and the ordered cut list live in `04-build-plan.md`.
+
+## Presentation amendment — October 24, 2026 (R1–R4 / ADR-08)
+
+The member interface reports stored booking and payment facts. AI-drafted
+acknowledgments remain available in triage records for staff; they are not shown
+as staff replies. AI triage does not establish human review. A `scheduled`
+booking without a recorded visit window is labeled “Awaiting visit time”; a
+`confirmed` booking without a window is labeled “Approved · time pending.”
+Terminal requests do not show future progress steps. The weekly plan day is
+labeled “Regular service day,” rather than calculated as an appointment.
+Member copy makes no response-time, text-message, or reserved-slot commitment.
+These presentation rules supersede the earlier “Dana will text you shortly”
+holding-copy requirement. No scheduling or payment transition rules change.
