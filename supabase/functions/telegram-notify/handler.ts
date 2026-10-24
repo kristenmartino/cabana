@@ -3,7 +3,7 @@ export type Event = {
   telegram_delivered_at: string | null; telegram_message_id: number | null;
   dead_lettered_at: string | null;
 };
-export type Booking = { id: string; status: string; kind: string; request_text: string | null };
+export type Booking = { id: string; status: string; kind: string; request_text: string | null; window?: string | null };
 export interface DeliveryStore {
   owner(): Promise<number | null>;
   event(id: number): Promise<Event | null>;
@@ -13,11 +13,27 @@ export interface DeliveryStore {
   release(id: number, token: string): Promise<void>;
 }
 
+export function formatVisitWindow(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const match = value.match(/^[[(]"?([^",]+)"?,\s*"?([^"\])]+)"?[\])]$/);
+  if (!match) return null;
+  const start = new Date(match[1]), end = new Date(match[2]);
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || end <= start) return null;
+  const format = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York", month: "short", day: "numeric", year: "numeric",
+    hour: "numeric", minute: "2-digit", timeZoneName: "short",
+  });
+  return `${format.format(start)} – ${format.format(end)}`;
+}
+
 export function notificationBody(event: Event, booking: Booking, owner: number) {
   const p = event.payload;
-  const lines = [event.topic === "booking.created" ? "🟦 New booking" :
+  const lines = [event.topic === "booking.visit_window_changed" ? "🗓 Visit window updated" : event.topic === "booking.created" ? "🟦 New booking" :
     `🔄 Booking status: ${p.from || "?"} → ${p.to || "?"}`,
     `kind: ${booking.kind}`, `status: ${booking.status}`];
+  const visitWindow = formatVisitWindow(booking.window);
+  if (visitWindow) lines.push(`Visit window: ${visitWindow}`);
+  else if (event.topic === "booking.visit_window_changed") lines.push("Visit time is unassigned.");
   if (booking.request_text) lines.push(`“${booking.request_text.slice(0, 240)}”`);
   lines.push(`id: ${booking.id}`);
   return {
@@ -68,7 +84,7 @@ export function createHandler(options: {
         if (event.telegram_delivered_at)
           return json({ ok: true, already_delivered: true, message_id: event.telegram_message_id });
         if (event.dead_lettered_at) return json({ error: "operator requeue required" }, 409);
-        if (!["booking.created", "booking.status_changed"].includes(event.topic) ||
+        if (!["booking.created", "booking.status_changed", "booking.visit_window_changed"].includes(event.topic) ||
           typeof event.payload.booking_id !== "string") return json({ error: "unsupported event" }, 422);
         const booking = await store.booking(event.payload.booking_id);
         if (!booking) return json({ error: "booking not found" }, 410);
