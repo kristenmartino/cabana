@@ -90,7 +90,7 @@ describe("one-time email confirmation", () => {
 });
 
 describe("auth input boundaries", () => {
-  it.each(["https://evil.example", "//evil.example", "/\\evil.example", "/\t/evil.example", "/\n/evil.example", "/ /evil.example", null])("rejects redirect escapes: %s", (path) => {
+  it.each(["https://evil.example", "//evil.example", "/\\evil.example", "/\t/evil.example", "/\n/evil.example", "/ /evil.example", "/..//evil.example", "/account/..//evil.example", "/%2e%2e//evil.example", null])("rejects redirect escapes: %s", (path) => {
     expect(safeNextPath(path)).toBe("/");
   });
   it("preserves a same-origin destination", () => expect(safeNextPath("/history?view=all#visit")).toBe("/history?view=all#visit"));
