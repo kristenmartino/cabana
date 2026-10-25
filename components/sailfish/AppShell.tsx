@@ -13,7 +13,7 @@ export function AppShell({
   showNav?: boolean;
 }) {
   const pathname = usePathname();
-  const isAuth = pathname === "/sign-in";
+  const isAuth = pathname === "/sign-in" || pathname.startsWith("/auth/");
 
   return (
     <div className="min-h-screen bg-background">
