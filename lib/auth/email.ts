@@ -7,7 +7,10 @@ export function safeNextPath(value: string | null): string {
   if (!value?.startsWith("/") || value.startsWith("//") || /[\\\s\u0000-\u001f\u007f]/.test(value)) return "/";
   const base = "https://member.invalid";
   const target = new URL(value, base);
-  return target.origin === base ? `${target.pathname}${target.search}${target.hash}` : "/";
+  // Dot-segment normalization can turn /..//host into //host. Reject it
+  // before callers resolve the returned path against the real origin again.
+  return target.origin === base && !target.pathname.startsWith("//")
+    ? `${target.pathname}${target.search}${target.hash}` : "/";
 }
 
 export function validEmailToken(value: unknown): value is string {
