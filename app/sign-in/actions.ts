@@ -3,10 +3,11 @@
 // members table (service role, pre-auth) and only send a link if it's a real
 // member. A non-member gets a polite dead end — never an account, never an
 // error page (R1 acceptance criteria). The auth user is linked to the member
-// row on first sign-in, in the /auth/callback route.
+// row on first sign-in, after email confirmation.
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { memberEmailPattern } from "@/lib/auth/email";
 
 export type SignInResult =
   | { ok: true }
@@ -23,7 +24,7 @@ export async function sendMagicLink(email: string): Promise<SignInResult> {
   const { data: member, error: lookupErr } = await admin
     .from("members")
     .select("id")
-    .ilike("email", normalized)
+    .ilike("email", memberEmailPattern(normalized))
     .maybeSingle();
 
   if (lookupErr) {
@@ -31,7 +32,7 @@ export async function sendMagicLink(email: string): Promise<SignInResult> {
     return { ok: false, reason: "error", message: "Something went wrong. Try again." };
   }
   if (!member) {
-    // Polite dead end — the UI shows Dana's number.
+    // A non-member can explore the shared demo; no sign-in email is sent.
     return { ok: false, reason: "not_member" };
   }
 
@@ -40,9 +41,9 @@ export async function sendMagicLink(email: string): Promise<SignInResult> {
   const { error } = await supabase.auth.signInWithOtp({
     email: normalized,
     options: {
-      emailRedirectTo: `${origin}/auth/callback`,
+      emailRedirectTo: `${origin}/auth/confirm`,
       // First-time members have no auth user yet; create it, then link in the
-      // callback. Only members reach this line, so no stranger gets an account.
+      // confirmation. Only members reach this line, so no stranger gets an account.
       shouldCreateUser: true,
     },
   });

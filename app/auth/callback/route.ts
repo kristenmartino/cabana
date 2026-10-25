@@ -4,32 +4,25 @@
 // needs the service role — RLS locks members down to reads.
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { linkMemberSession } from "@/lib/auth/member-session";
+import { safeNextPath } from "@/lib/auth/email";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/";
+  const next = safeNextPath(searchParams.get("next"));
 
   if (code) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user?.email) {
-        const admin = createAdminClient();
-        const { error: linkErr } = await admin
-          .from("members")
-          .update({ user_id: user.id })
-          .ilike("email", user.email)
-          .is("user_id", null);
-        if (linkErr) console.error("auth callback: member link failed", linkErr);
-      }
-      return NextResponse.redirect(`${origin}${next}`);
+    if (!error && await linkMemberSession(supabase)) {
+      const response = NextResponse.redirect(new URL(next, origin));
+      response.headers.set("Cache-Control", "private, no-store");
+      return response;
     }
-    console.error("auth callback: code exchange failed", error);
+    if (error) console.error("auth callback: code exchange failed", error.code);
   }
-  return NextResponse.redirect(`${origin}/sign-in?error=link`);
+  const response = NextResponse.redirect(`${origin}/sign-in?error=link`);
+  response.headers.set("Cache-Control", "private, no-store");
+  return response;
 }
