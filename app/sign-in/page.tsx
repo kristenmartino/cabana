@@ -2,9 +2,7 @@
 import { useState, useTransition } from "react";
 import { AppShell } from "@/components/sailfish/AppShell";
 import { sendMagicLink } from "./actions";
-import { SUPPORT } from "@/lib/brand";
-
-const telHref = `tel:${SUPPORT.phone.replace(/[^\d]/g, "")}`;
+import { enterDemo } from "@/app/actions";
 
 export default function SignIn() {
   const [email, setEmail] = useState("");
@@ -34,7 +32,7 @@ export default function SignIn() {
         <p
           className="mt-3 text-[15px] leading-relaxed text-muted-foreground"
         >
-          Check your regular service day, view request status, or report a pool problem.
+          Use the email linked to your member account.
         </p>
 
         {view === "form" && (
@@ -65,7 +63,7 @@ export default function SignIn() {
             </button>
             {error && <p className="mt-3 text-center text-sm text-destructive">{error}</p>}
             <p className="mt-3 text-center text-xs text-muted-foreground">
-              We&apos;ll email you a secure link — no password to remember.
+              Sign in with a link sent to your email.
             </p>
           </form>
         )}
@@ -80,7 +78,7 @@ export default function SignIn() {
             <h2 className="mt-4 font-display text-2xl font-semibold text-deepwater">Check your email</h2>
             <p className="mt-2 text-sm text-muted-foreground">
               We just sent a sign-in link to <span className="font-medium text-deepwater">{email}</span>.
-              Tap the link on this phone and you&apos;re in.
+              Open the link to sign in.
             </p>
             <button
               onClick={() => setView("form")}
@@ -102,15 +100,8 @@ export default function SignIn() {
               We don&apos;t have that email on file
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              This portal is for Sailfish members. If you think this is a mistake, or you&apos;d like
-              to become a member, give {SUPPORT.name} a call — she&apos;ll get you set up.
+              Use another member email, or explore the shared demo below.
             </p>
-            <a
-              href={telHref}
-              className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-coral transition-colors duration-150 hover:bg-[color-mix(in_oklab,var(--color-coral)_88%,white)] px-5 py-3 text-base font-semibold text-coral-foreground border border-border"
-            >
-              Call {SUPPORT.name} · {SUPPORT.phone}
-            </a>
             <button
               onClick={() => setView("form")}
               className="mt-4 flex min-h-11 w-full items-center justify-center rounded-lg text-sm font-medium text-lagoon underline-offset-4 hover:underline"
@@ -120,13 +111,17 @@ export default function SignIn() {
           </div>
         )}
 
-        <p className="mt-8 text-center text-sm text-muted-foreground">
-          Not a member yet? Call {SUPPORT.name} at{" "}
-          <a href={telHref} className="font-semibold text-deepwater underline-offset-4 hover:underline">
-            {SUPPORT.phone}
-          </a>
-          .
-        </p>
+        <form action={enterDemo} className="mt-8 text-center">
+          <p className="text-sm text-muted-foreground">
+            Explore with sample data. No sign-up required.
+          </p>
+          <button
+            type="submit"
+            className="mt-2 inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold text-lagoon underline-offset-4 hover:underline"
+          >
+            Enter the demo
+          </button>
+        </form>
       </div>
     </AppShell>
   );
