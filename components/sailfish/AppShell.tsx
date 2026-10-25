@@ -38,7 +38,7 @@ export function AppShell({
         </div>
       </header>
       <main className="mx-auto max-w-md px-5 pb-24 pt-5">
-        {showNav && (
+        {(showNav || isAuth) && (
           <p className="mb-5 border-b border-border pb-3 text-xs leading-relaxed text-muted-foreground">
             Demo · shared fictional data · Stripe test mode. Use sample details only.
           </p>

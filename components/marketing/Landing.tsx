@@ -16,7 +16,7 @@ export function Landing() {
           <p
             className="mt-4 text-lg text-muted-foreground max-w-md mx-auto"
           >
-            Report a pool problem, check request status, and pay repair deposits.
+            Report a pool problem, check request status, and try a $75 Stripe test deposit.
           </p>
         </div>
 

@@ -929,3 +929,8 @@ current booking status, and replaying delivered events returned the same
 receipts without another send. Public health returned 200 with zero backlog
 and zero dead-lettered events. Approval and visit time remained pending in the
 member UI. Existing schedules and cleanup were restored after verification.
+
+
+### October 25, 2026 — Final demo copy consistency
+
+The final desktop/mobile review found that sign-in lacked the demo notice, offered fictional customer onboarding by phone, and referred to “this phone” on desktop. Sign-in now shows the existing shared-data/test-mode notice, uses device-neutral email-link copy, and offers the existing shared-demo action instead of implying account enrollment. The public introduction and page description explicitly identify the $75 deposit as a Stripe test. This presentation-only update serves R1 / ADR-05; authentication, triage, booking/payment states, RLS, and webhook/outbox behavior are unchanged.
