@@ -124,6 +124,8 @@ export function reconcile(beforeRows, airtableRows, afterRows, checkedAt = new D
   const issues = [];
   const index = new Map();
   const recordIds = new Set();
+  const allBookingRecords = new Map();
+  const historyRecordIds = [];
   for (const row of airtableRows) {
     if (!row || typeof row.id !== 'string' || !/^rec[a-z0-9]+$/i.test(row.id) || !row.fields || typeof row.fields !== 'object' || Array.isArray(row.fields) || recordIds.has(row.id)) throw new Error('Invalid or repeated Airtable record; retry scan');
     recordIds.add(row.id);
@@ -133,7 +135,24 @@ export function reconcile(beforeRows, airtableRows, afterRows, checkedAt = new D
       continue;
     }
     const key = id.toLowerCase();
+    allBookingRecords.set(key, [...(allBookingRecords.get(key) ?? []), row.id]);
+    // History is an explicit, dated operator annotation, never inferred from
+    // absence alone. It cannot exempt an ID present in either app snapshot.
+    const history = row.fields.qa_history;
+    if (history !== undefined && history !== null && history !== '') {
+      const annotation = typeof history === 'string' && history.match(/^Archived (\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z) \| (.{20,1000})$/);
+      const valid = annotation && Number.isFinite(Date.parse(annotation[1])) && new Date(annotation[1]).toISOString() === annotation[1];
+      if (!valid) issues.push({ type: 'invalid_history', booking_id: key, record_ids: [row.id] });
+      else if (before.has(key) || after.has(key)) issues.push({ type: 'history_conflict', booking_id: key, record_ids: [row.id] });
+      else {
+        historyRecordIds.push(row.id);
+        continue;
+      }
+    }
     index.set(key, [...(index.get(key) ?? []), row]);
+  }
+  for (const [id, records] of allBookingRecords) {
+    if (records.length > 1 && !deferred.has(id)) issues.push({ type: 'duplicate_booking', booking_id: id, record_ids: records });
   }
   let compared = 0;
   for (const id of [...new Set([...after.keys(), ...index.keys()])].sort()) {
@@ -145,7 +164,6 @@ export function reconcile(beforeRows, airtableRows, afterRows, checkedAt = new D
     } else if (records.length === 0) {
       issues.push({ type: 'missing_booking', booking_id: id, record_ids: [] });
     } else {
-      if (records.length > 1) issues.push({ type: 'duplicate_booking', booking_id: id, record_ids: records.map(r => r.id) });
       compared++;
       for (const record of records) {
         for (const field of FIELDS) {
@@ -156,8 +174,8 @@ export function reconcile(beforeRows, airtableRows, afterRows, checkedAt = new D
       }
     }
   }
-  const counts = Object.fromEntries(['field_mismatch', 'missing_booking', 'unexpected_booking', 'duplicate_booking', 'invalid_booking_id'].map(type => [type, issues.filter(i => i.type === type).length]));
-  const result = { checked_at: checkedAt, status: deferred.size ? 'incomplete' : issues.length ? 'drift' : 'matched', app_count: after.size, airtable_count: airtableRows.length, compared_bookings: compared, deferred_booking_ids: [...deferred].sort(), issue_count: issues.length, counts, issues, text: '' };
+  const counts = Object.fromEntries(['field_mismatch', 'missing_booking', 'unexpected_booking', 'duplicate_booking', 'invalid_booking_id', 'invalid_history', 'history_conflict'].map(type => [type, issues.filter(i => i.type === type).length]));
+  const result = { checked_at: checkedAt, status: deferred.size ? 'incomplete' : issues.length ? 'drift' : 'matched', app_count: after.size, airtable_count: airtableRows.length, active_airtable_count: airtableRows.length - historyRecordIds.length, history_record_count: historyRecordIds.length, history_record_ids: historyRecordIds.sort(), compared_bookings: compared, deferred_booking_ids: [...deferred].sort(), issue_count: issues.length, counts, issues, text: '' };
   result.text = formatReport(result);
   return result;
 }
@@ -165,10 +183,12 @@ export function reconcile(beforeRows, airtableRows, afterRows, checkedAt = new D
 export function formatReport(result) {
   const lines = [
     `${result.status === 'matched' ? '✅' : '⚠️'} Cabana reconciliation: ${result.status === 'matched' ? 'all compared fields match' : result.status === 'incomplete' ? 'incomplete scan' : 'booking drift detected'}.`,
-    `${result.app_count} app bookings; ${result.airtable_count} Airtable records; ${result.compared_bookings} bookings compared across ${FIELDS.length} fields.`,
+    `${result.app_count} app bookings; ${result.active_airtable_count} current Airtable records; ${result.compared_bookings} bookings compared across ${FIELDS.length} fields.`,
+    `${result.history_record_count} historical QA records retained separately (${result.airtable_count} Airtable records total). Historical contents are not compared to absent app bookings.`,
     `${result.counts.field_mismatch} field mismatches; ${result.counts.missing_booking} missing; ${result.counts.unexpected_booking} unexpected; ${result.counts.duplicate_booking} duplicate IDs; ${result.counts.invalid_booking_id} invalid IDs.`,
     `Checked ${result.checked_at}. Read-only; no records changed.`,
   ];
+  if (result.counts.invalid_history || result.counts.history_conflict) lines.push(`${result.counts.invalid_history} invalid history annotations; ${result.counts.history_conflict} current bookings incorrectly marked as history.`);
   if (result.deferred_booking_ids.length) lines.push(`${result.deferred_booking_ids.length} bookings changed during the scan and were deferred. Run again.`);
   let shown = 0;
   for (const issue of result.issues) {
