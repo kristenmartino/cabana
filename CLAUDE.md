@@ -61,7 +61,7 @@ Never weaken, even "temporarily," even mid-debug:
   (old versions are immutable once referenced by `ai_events`). Behavior changes
   require golden-set green: ≥90% overall, 100% containment.
 - **Airtable:** projection only. Write-back whitelist (`visit_notes`,
-  `mark_completed`) is in the edge function; expanding it = ADR-01 amendment.
+  `mark_completed`, `mark_missed`) is in the edge function; expanding it = ADR-01 amendment.
 - **Secrets:** never in code, never `NEXT_PUBLIC_` unless truly public, gitleaks
   runs in CI over full history. `.env.example` documents every variable.
 - **Commits:** conventional commits; PRs-to-self with the template filled in,
