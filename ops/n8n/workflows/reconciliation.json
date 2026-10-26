@@ -2,39 +2,58 @@
   "name": "reconciliation",
   "nodes": [
     {
-      "id": "a1b2c3d4-5e6f-4a1b-8c9d-0e1f2a3b4c5d",
-      "icon": "fa:clock",
       "name": "Every night 3am ET",
+      "id": "recon-schedule",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
-        -600,
-        0
+        -700,
+        -100
       ],
       "parameters": {
         "rule": {
           "interval": [
             {
               "field": "cronExpression",
-              "expression": "0 7 * * *"
+              "expression": "0 3 * * *"
             }
           ]
         }
       }
     },
     {
-      "id": "b2c3d4e5-6f7a-4b2c-9d0e-1f2a3b4c5d6e",
-      "icon": "fa:globe",
-      "name": "Count Supabase bookings",
+      "name": "Run reconciliation",
+      "id": "recon-manual",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -700,
+        100
+      ],
+      "parameters": {}
+    },
+    {
+      "name": "Read app bookings",
+      "id": "recon-app-before",
+      "position": [
+        -460,
+        0
+      ],
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        -360,
-        -120
-      ],
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "REPLACE_WITH_SUPABASE_CRED_ID",
+          "name": "Supabase service role"
+        }
+      },
       "parameters": {
         "method": "GET",
-        "url": "https://uuviebpmiwzjyabucheo.supabase.co/rest/v1/bookings?select=id",
+        "url": "https://uuviebpmiwzjyabucheo.supabase.co/rest/v1/bookings?select=id,member_id,kind,status,request_text,window,deposit_required,visit_notes,members(full_name),properties(address),techs(display_name),payments(status)&order=id.asc&limit=1000",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpCustomAuth",
         "sendHeaders": true,
@@ -43,53 +62,67 @@
             {
               "name": "Prefer",
               "value": "count=exact"
-            },
-            {
-              "name": "Range-Unit",
-              "value": "items"
-            },
-            {
-              "name": "Range",
-              "value": "0-0"
             }
           ]
         },
         "options": {
+          "timeout": 25000,
           "response": {
             "response": {
               "fullResponse": true,
-              "neverError": true
+              "responseFormat": "json"
+            }
+          },
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "offset",
+                    "value": "={{ $pageCount * 1000 }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ Array.isArray($response.body) && $response.body.length < 1000 }}",
+              "limitPagesFetched": false
             }
           }
-        }
-      },
-      "credentials": {
-        "httpCustomAuth": {
-          "id": "REPLACE_WITH_SUPABASE_CRED_ID",
-          "name": "Supabase"
         }
       }
     },
     {
-      "id": "c3d4e5f6-7a8b-4c3d-0e1f-2a3b4c5d6e7f",
-      "icon": "fa:globe",
-      "name": "Count Airtable records",
+      "name": "Read Airtable bookings",
+      "id": "recon-airtable",
+      "position": [
+        -220,
+        0
+      ],
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        -360,
-        120
-      ],
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_AIRTABLE_CRED_ID",
+          "name": "Airtable"
+        }
+      },
       "parameters": {
         "method": "GET",
-        "url": "=https://api.airtable.com/v0/{{ $env.AIRTABLE_BASE_ID }}/Bookings?pageSize=100&fields%5B%5D=id",
+        "url": "=https://api.airtable.com/v0/{{ $env.AIRTABLE_BASE_ID }}/Bookings?pageSize=100&fields%5B%5D=booking_id&fields%5B%5D=status&fields%5B%5D=kind&fields%5B%5D=member_id&fields%5B%5D=member_name&fields%5B%5D=address&fields%5B%5D=tech_name&fields%5B%5D=deposit_status&fields%5B%5D=request_text&fields%5B%5D=window_start&fields%5B%5D=window_end&fields%5B%5D=visit_notes",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "options": {
+          "timeout": 25000,
           "response": {
             "response": {
               "fullResponse": true,
-              "neverError": true
+              "responseFormat": "json"
             }
           },
           "pagination": {
@@ -110,74 +143,112 @@
             }
           }
         }
-      },
+      }
+    },
+    {
+      "name": "Read app bookings again",
+      "id": "recon-app-after",
+      "position": [
+        20,
+        0
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
       "credentials": {
-        "httpHeaderAuth": {
-          "id": "REPLACE_WITH_AIRTABLE_CRED_ID",
-          "name": "Airtable"
+        "httpCustomAuth": {
+          "id": "REPLACE_WITH_SUPABASE_CRED_ID",
+          "name": "Supabase service role"
+        }
+      },
+      "parameters": {
+        "method": "GET",
+        "url": "https://uuviebpmiwzjyabucheo.supabase.co/rest/v1/bookings?select=id,member_id,kind,status,request_text,window,deposit_required,visit_notes,members(full_name),properties(address),techs(display_name),payments(status)&order=id.asc&limit=1000",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "count=exact"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 25000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          },
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "offset",
+                    "value": "={{ $pageCount * 1000 }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ Array.isArray($response.body) && $response.body.length < 1000 }}",
+              "limitPagesFetched": false
+            }
+          }
         }
       }
     },
     {
-      "id": "d4e5f6a7-8b9c-4d3e-1f2a-3b4c5d6e7f8a",
-      "icon": "fa:code-branch",
-      "name": "Join counts",
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 3,
-      "position": [
-        -120,
-        0
-      ],
-      "parameters": {
-        "mode": "combine",
-        "combineBy": "combineByPosition"
-      }
-    },
-    {
-      "id": "e5f6a7b8-9c0d-4e3f-2a3b-4c5d6e7f8a9b",
-      "icon": "fa:code",
-      "name": "Compute drift",
+      "name": "Compare booking fields",
+      "id": "recon-compare",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        120,
+        260,
         0
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
         "language": "javaScript",
-        "jsCode": "// Supabase exact count from Content-Range header \"0-0/N\" (n8n lowercases header names).\nconst sbItem = $('Count Supabase bookings').first().json;\nconst cr = sbItem.headers ? (sbItem.headers['content-range'] || sbItem.headers['Content-Range']) : undefined;\nconst supabaseCount = cr && cr.includes('/') ? parseInt(cr.split('/')[1], 10) : 0;\n// Airtable: sum records across ALL paginated items.\nconst airItems = $('Count Airtable records').all();\nlet airtableCount = 0;\nfor (const it of airItems) {\n  const recs = it.json && it.json.body ? it.json.body.records : (it.json ? it.json.records : null);\n  if (Array.isArray(recs)) airtableCount += recs.length;\n}\nconst drift = Math.abs(supabaseCount - airtableCount);\nconst text = drift === 0\n  ? '✅ Reconciliation: ' + supabaseCount + ' bookings, ' + airtableCount + ' synced, 0 drift.'\n  : '⚠️ Reconciliation: ' + supabaseCount + ' in Supabase, ' + airtableCount + ' in Airtable, drift = ' + drift + '.';\nreturn [{ json: { text, supabaseCount, airtableCount, drift } }];"
+        "jsCode": "// GENERATED by scripts/build-reconciliation.mjs. Edit ops/n8n/reconciliation.mjs.\n// Pure comparison code. scripts/build-reconciliation.mjs embeds this exact source\n// in n8n; no network calls, mutations, credentials or staff-control inputs here.\nconst FIELDS = [\n  'status', 'kind', 'member_id', 'member_name', 'address', 'tech_name',\n  'deposit_status', 'request_text', 'window_start', 'window_end', 'visit_notes',\n];\nconst UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\nconst PRIVATE = new Set(['member_name', 'address', 'tech_name', 'request_text', 'visit_notes', 'member_id']);\nconst ENUMS = {\n  status: ['requested', 'needs_review', 'awaiting_deposit', 'scheduled', 'confirmed', 'completed', 'cancelled', 'no_show'],\n  kind: ['plan_visit', 'one_off_clean', 'repair'],\n  deposit_status: ['paid', 'pending', 'unpaid', 'n/a'],\n};\n\nfunction text(value) {\n  if (value === undefined || value === null || value === '') return null;\n  if (typeof value !== 'string') throw new Error('Expected text');\n  return value.replace(/\\r\\n?/g, '\\n');\n}\n\nfunction instant(value) {\n  const valueText = text(value);\n  if (valueText === null) return null;\n  // Require an explicit offset; never let the n8n server's local timezone decide.\n  if (!/^\\d{4}-\\d\\d-\\d\\d[T ]\\d\\d:\\d\\d(?::\\d\\d(?:\\.\\d+)?)?(Z|[+-]\\d\\d(?::?\\d\\d)?)$/i.test(valueText)) throw new Error('Invalid timestamp');\n  const iso = valueText.replace(' ', 'T').replace(/([+-]\\d\\d)$/, '$1:00');\n  const ms = Date.parse(iso);\n  if (!Number.isFinite(ms)) throw new Error('Invalid timestamp');\n  return new Date(ms).toISOString();\n}\n\nfunction normalize(field, value) {\n  if (field.startsWith('window_')) return instant(value);\n  const normalized = text(value);\n  return field === 'member_id' && normalized !== null ? normalized.toLowerCase() : normalized;\n}\n\nfunction projectBooking(booking) {\n  if (!booking || !UUID.test(booking.id) || !UUID.test(booking.member_id)) throw new Error('Invalid app booking identity');\n  const required = ['status', 'kind', 'request_text', 'window', 'visit_notes', 'deposit_required', 'members', 'properties', 'techs', 'payments'];\n  if (required.some(key => !Object.hasOwn(booking, key)) || !Array.isArray(booking.payments) || typeof booking.deposit_required !== 'boolean') throw new Error('Incomplete app projection');\n  if (!ENUMS.status.includes(booking.status) || !ENUMS.kind.includes(booking.kind)) throw new Error('Invalid app booking state');\n  if (booking.payments.some(p => !['pending', 'paid', 'expired', 'refunded'].includes(p.status))) throw new Error('Invalid app payment state');\n  for (const [relation, field] of [['members', 'full_name'], ['properties', 'address'], ['techs', 'display_name']]) {\n    if (booking[relation] !== null && (typeof booking[relation] !== 'object' || Array.isArray(booking[relation]) || !Object.hasOwn(booking[relation], field))) throw new Error('Invalid app enrichment');\n  }\n  let bounds = [null, null];\n  if (booking.window !== null) {\n    const match = String(booking.window).match(/^[[(]\"?([^\",]+)\"?,\\s*\"?([^\"\\])]+)\"?[\\])]$/);\n    if (!match) throw new Error('Invalid app visit window');\n    bounds = [instant(match[1]), instant(match[2])];\n    if (bounds[0] >= bounds[1]) throw new Error('Invalid app visit window order');\n  }\n  const pays = booking.payments;\n  const projected = {\n    status: booking.status, kind: booking.kind, member_id: booking.member_id,\n    member_name: booking.members?.full_name ?? null,\n    address: booking.properties?.address ?? null,\n    tech_name: booking.techs?.display_name ?? null,\n    deposit_status: pays.some(p => p.status === 'paid') ? 'paid' : pays.some(p => p.status === 'pending') ? 'pending' : booking.deposit_required ? 'unpaid' : 'n/a',\n    request_text: booking.request_text, window_start: bounds[0], window_end: bounds[1], visit_notes: booking.visit_notes,\n  };\n  return Object.fromEntries(FIELDS.map(field => [field, normalize(field, projected[field])]));\n}\n\n// Full-response HTTP nodes must finish pagination successfully. Missing/failed\n// pages are errors, never interpreted as an empty database or a healthy scan.\nfunction readPages(items, source) {\n  if (!Array.isArray(items) || items.length === 0) throw new Error(`Missing ${source} response`);\n  let expectedCount;\n  const rows = [];\n  const offsets = new Set();\n  for (let index = 0; index < items.length; index++) {\n    const page = items[index].json;\n    if (!page || page.statusCode < 200 || page.statusCode >= 300 || !Number.isInteger(page.statusCode)) throw new Error(`Failed ${source} response`);\n    if (source === 'app') {\n      if (!Array.isArray(page.body)) throw new Error('Invalid app response');\n      const range = page.headers?.['content-range'] ?? page.headers?.['Content-Range'];\n      const count = typeof range === 'string' && range.match(/^(?:\\d+-\\d+|\\*)\\/(\\d+)$/);\n      if (!count) throw new Error('Missing app exact count');\n      const total = Number(count[1]);\n      if (expectedCount !== undefined && total !== expectedCount) throw new Error('App changed during pagination; retry scan');\n      expectedCount = total;\n      if (index < items.length - 1 && page.body.length !== 1000) throw new Error('Incomplete app page');\n      if (index === items.length - 1 && page.body.length >= 1000) throw new Error('Unfinished app pagination');\n      rows.push(...page.body);\n    } else if (source === 'airtable') {\n      if (!page.body || !Array.isArray(page.body.records)) throw new Error('Invalid Airtable response');\n      const offset = page.body.offset;\n      if (offset !== undefined && (typeof offset !== 'string' || !offset || offsets.has(offset))) throw new Error('Invalid Airtable pagination');\n      if ((index === items.length - 1) !== (offset === undefined)) throw new Error('Incomplete Airtable pagination');\n      if (offset) offsets.add(offset);\n      rows.push(...page.body.records);\n    } else throw new Error('Unknown response source');\n  }\n  if (source === 'app' && rows.length !== expectedCount) throw new Error('App row count does not match exact count');\n  return rows;\n}\n\nfunction appIndex(rows) {\n  if (!Array.isArray(rows)) throw new Error('Missing app snapshot');\n  const result = new Map();\n  for (const booking of rows) {\n    const projection = projectBooking(booking);\n    const id = booking.id.toLowerCase();\n    if (result.has(id)) throw new Error('Duplicate app booking; retry scan');\n    result.set(id, projection);\n  }\n  return result;\n}\n\nfunction safeValue(field, value) {\n  if (PRIVATE.has(field)) return '[contents omitted]';\n  if (value === null) return '(blank)';\n  if (field.startsWith('window_') || ENUMS[field]?.includes(value)) return value;\n  return '[invalid value]';\n}\n\nfunction reconcile(beforeRows, airtableRows, afterRows, checkedAt = new Date().toISOString()) {\n  const before = appIndex(beforeRows);\n  const after = appIndex(afterRows);\n  if (!Array.isArray(airtableRows)) throw new Error('Missing Airtable snapshot');\n  const deferred = new Set([...before.keys(), ...after.keys()].filter(id => JSON.stringify(before.get(id)) !== JSON.stringify(after.get(id))));\n  const issues = [];\n  const index = new Map();\n  const recordIds = new Set();\n  for (const row of airtableRows) {\n    if (!row || typeof row.id !== 'string' || !/^rec[a-z0-9]+$/i.test(row.id) || !row.fields || typeof row.fields !== 'object' || Array.isArray(row.fields) || recordIds.has(row.id)) throw new Error('Invalid or repeated Airtable record; retry scan');\n    recordIds.add(row.id);\n    const id = row.fields.booking_id;\n    if (typeof id !== 'string' || !UUID.test(id)) {\n      issues.push({ type: 'invalid_booking_id', record_ids: [row.id] });\n      continue;\n    }\n    const key = id.toLowerCase();\n    index.set(key, [...(index.get(key) ?? []), row]);\n  }\n  let compared = 0;\n  for (const id of [...new Set([...after.keys(), ...index.keys()])].sort()) {\n    if (deferred.has(id)) continue;\n    const expected = after.get(id);\n    const records = index.get(id) ?? [];\n    if (!expected) {\n      issues.push({ type: 'unexpected_booking', booking_id: id, record_ids: records.map(r => r.id) });\n    } else if (records.length === 0) {\n      issues.push({ type: 'missing_booking', booking_id: id, record_ids: [] });\n    } else {\n      if (records.length > 1) issues.push({ type: 'duplicate_booking', booking_id: id, record_ids: records.map(r => r.id) });\n      compared++;\n      for (const record of records) {\n        for (const field of FIELDS) {\n          let actual;\n          try { actual = normalize(field, record.fields[field]); } catch { actual = '[invalid value]'; }\n          if (actual !== expected[field]) issues.push({ type: 'field_mismatch', booking_id: id, record_ids: [record.id], field, expected: safeValue(field, expected[field]), actual: safeValue(field, actual) });\n        }\n      }\n    }\n  }\n  const counts = Object.fromEntries(['field_mismatch', 'missing_booking', 'unexpected_booking', 'duplicate_booking', 'invalid_booking_id'].map(type => [type, issues.filter(i => i.type === type).length]));\n  const result = { checked_at: checkedAt, status: deferred.size ? 'incomplete' : issues.length ? 'drift' : 'matched', app_count: after.size, airtable_count: airtableRows.length, compared_bookings: compared, deferred_booking_ids: [...deferred].sort(), issue_count: issues.length, counts, issues, text: '' };\n  result.text = formatReport(result);\n  return result;\n}\n\nfunction formatReport(result) {\n  const lines = [\n    `${result.status === 'matched' ? '✅' : '⚠️'} Cabana reconciliation: ${result.status === 'matched' ? 'all compared fields match' : result.status === 'incomplete' ? 'incomplete scan' : 'booking drift detected'}.`,\n    `${result.app_count} app bookings; ${result.airtable_count} Airtable records; ${result.compared_bookings} bookings compared across ${FIELDS.length} fields.`,\n    `${result.counts.field_mismatch} field mismatches; ${result.counts.missing_booking} missing; ${result.counts.unexpected_booking} unexpected; ${result.counts.duplicate_booking} duplicate IDs; ${result.counts.invalid_booking_id} invalid IDs.`,\n    `Checked ${result.checked_at}. Read-only; no records changed.`,\n  ];\n  if (result.deferred_booking_ids.length) lines.push(`${result.deferred_booking_ids.length} bookings changed during the scan and were deferred. Run again.`);\n  let shown = 0;\n  for (const issue of result.issues) {\n    const line = issue.type === 'field_mismatch'\n      ? `${issue.booking_id} / ${issue.record_ids[0]}: ${issue.field}${PRIVATE.has(issue.field) ? ' differs (contents omitted)' : ` — app ${issue.expected}; Airtable ${issue.actual}`}`\n      : `${issue.booking_id ?? '(no valid booking ID)'}: ${issue.type}; records ${issue.record_ids.join(', ') || '(none)'}`;\n    if (shown >= 20 || lines.join('\\n').length + line.length > 3650) break;\n    lines.push(line);\n    shown++;\n  }\n  if (shown < result.issues.length) lines.push(`${result.issues.length - shown} more issues; see the reconciliation execution output in n8n.`);\n  return lines.join('\\n');\n}\n\nreturn [{ json: reconcile(readPages($('Read app bookings').all(), 'app'), readPages($('Read Airtable bookings').all(), 'airtable'), readPages($('Read app bookings again').all(), 'app')) }];\n"
       }
     },
     {
-      "id": "f6a7b8c9-0d1e-4f3a-3b4c-5d6e7f8a9b0c",
-      "icon": "fa:paper-plane",
       "name": "Send report",
+      "id": "recon-report",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        360,
+        500,
         0
       ],
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "REPLACE_WITH_SUPABASE_CRED_ID",
+          "name": "Supabase service role"
+        }
+      },
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 2000,
       "parameters": {
         "method": "POST",
         "url": "https://uuviebpmiwzjyabucheo.supabase.co/functions/v1/telegram-notify",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ text: $json.text }) }}",
         "options": {
           "timeout": 25000
-        },
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpCustomAuth"
-      },
-      "credentials": {
-        "httpCustomAuth": {
-          "id": "REPLACE_WITH_SUPABASE_CRED_ID",
-          "name": "Supabase service role"
         }
       }
     }
@@ -187,52 +258,58 @@
       "main": [
         [
           {
-            "node": "Count Supabase bookings",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Count Airtable records",
+            "node": "Read app bookings",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Count Supabase bookings": {
+    "Run reconciliation": {
       "main": [
         [
           {
-            "node": "Join counts",
+            "node": "Read app bookings",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Count Airtable records": {
+    "Read app bookings": {
       "main": [
         [
           {
-            "node": "Join counts",
-            "type": "main",
-            "index": 1
-          }
-        ]
-      ]
-    },
-    "Join counts": {
-      "main": [
-        [
-          {
-            "node": "Compute drift",
+            "node": "Read Airtable bookings",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Compute drift": {
+    "Read Airtable bookings": {
+      "main": [
+        [
+          {
+            "node": "Read app bookings again",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read app bookings again": {
+      "main": [
+        [
+          {
+            "node": "Compare booking fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compare booking fields": {
       "main": [
         [
           {
@@ -246,12 +323,8 @@
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
-  },
-  "versionId": "",
-  "id": "",
-  "meta": {
-    "instanceId": ""
+    "executionOrder": "v1",
+    "timezone": "America/New_York"
   },
   "tags": []
 }

@@ -104,7 +104,7 @@ n8n orchestrates side effects: on status transitions → create/update Airtable 
 **Acceptance criteria**
 - [ ] Chaos test: 50 simulated bookings while n8n is killed mid-run, duplicate deliveries injected, and Airtable calls forced to fail intermittently → after recovery, zero lost events, zero duplicate Airtable rows, zero duplicate member emails.
 - [ ] Any workflow failure produces a Telegram alert within 2 minutes and a dead-letter row; there is no failure path that ends in silence.
-- [ ] Nightly reconciliation posts a one-line "n bookings, n synced, 0 drift" (or a drift report) to Dana's Telegram.
+- [ ] Nightly reconciliation compares booking IDs and individual projection fields, and posts a bounded drift, matched or incomplete-scan report to Dana's Telegram. See `reconciliation.md` for field coverage, normalization, pagination and live verification.
 
 ### R6 — Owner console in Airtable (P0) · *traces: D2, D6, D7*
 Airtable base as a **projection** of Supabase (one-way sync), with linked records (Members ↔ Properties ↔ Bookings ↔ Payments) and views: *Today*, *This Week by Tech*, *Needs Review*, *Awaiting Deposit*, *Recently Completed*. An Interface page for Marie. Write-back limited to a whitelist — `mark completed`, `visit notes`, and the guarded `mark missed` action — flowing Airtable automation → edge function → Supabase (Supabase remains authoritative; conflicts resolve to Supabase with an audit entry).
