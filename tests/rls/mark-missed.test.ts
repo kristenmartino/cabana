@@ -1,9 +1,15 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Pool } from "pg";
+import { randomUUID } from "node:crypto";
 import { dbPool } from "../helpers/local-stack";
 let pool:Pool;
 const ids:string[]=[];
-beforeAll(()=>{pool=dbPool();});
+const memberId=randomUUID(), propertyId=randomUUID();
+beforeAll(async()=>{
+  pool=dbPool();
+  await pool.query("insert into members(id,business_id,full_name,email) values($1,'b1000000-0000-4000-8000-000000000001','Missed-action local QA',$2)",[memberId,`missed-${memberId}@example.invalid`]);
+  await pool.query("insert into properties(id,member_id,address,zip) values($1,$2,'Fictional local QA pool','33458')",[propertyId,memberId]);
+});
 afterAll(async()=>{
   if(ids.length){
     await pool.query("delete from booking_missed_actions where booking_id=any($1::uuid[])",[ids]);
@@ -11,12 +17,13 @@ afterAll(async()=>{
     await pool.query("delete from booking_transitions where booking_id=any($1::uuid[])",[ids]);
     await pool.query("delete from bookings where id=any($1::uuid[])",[ids]);
   }
+  await pool.query("delete from properties where id=$1",[propertyId]);
+  await pool.query("delete from members where id=$1",[memberId]);
   await pool.end();
 });
 async function fixture(status="confirmed",window="[2020-01-01T13:00Z,2020-01-01T14:00Z)"){
   const r=await pool.query(`insert into bookings(business_id,property_id,member_id,kind,status,"window")
-    values('b1000000-0000-4000-8000-000000000001','c1000000-0000-4000-8000-000000000001',
-    'a1000000-0000-4000-8000-000000000001','plan_visit',$1,$2::tstzrange) returning id`,[status,window]);
+    values('b1000000-0000-4000-8000-000000000001',$3,$4,'plan_visit',$1,$2::tstzrange) returning id`,[status,window,propertyId,memberId]);
   ids.push(r.rows[0].id);return r.rows[0].id as string;
 }
 const mark=(id:string,reason="Gate locked; no access.",staff="usrOffice")=>pool.query(
