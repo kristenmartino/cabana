@@ -4,7 +4,7 @@
 
 This board is your Monday morning, in one place: every job, its status, who it's
 for, and where. It updates itself from the app — you don't have to chase
-anything. There are only **two** things you ever change here; everything else is
+anything. There are only **three** controls you use here; everything else is
 just for reading.
 
 ---
@@ -24,9 +24,9 @@ differently.
 
 ---
 
-## The only two things you change
+## The three actions
 
-Both live on each booking's row (or on its expanded card in the Interface):
+These live on each booking's row (or on its expanded card in the Interface):
 
 1. **Mark completed** — a checkbox. Tick it when a job is done. That's it — the
    app picks it up and moves the booking to *Completed*, and the member sees it
@@ -38,7 +38,9 @@ Both live on each booking's row (or on its expanded card in the Interface):
    locked, left card," "needs a new filter next visit." Type it, click away, it
    saves back to the app.
 
-When you change either one, it takes a few seconds to sync. If the app declines
+3. **Mark missed** — enter `missed_reason`, then check `mark_missed`. The visit must be confirmed and its recorded window must have ended. `missed_by` captures your Airtable identity automatically; read `missed_result` for success or refusal. A refused action clears the box. “Delivery not confirmed” needs review before retrying. The original reason and staff identity are retained in the app audit; unchecking never reopens a visit.
+
+When you use these controls, it takes a few seconds to sync. If the app declines
 a change — say you tick "completed" on a job that isn't confirmed yet — the
 booking's **status won't move**, and the checkbox clears itself. The status is
 always right; the box now confirms it.
@@ -51,12 +53,11 @@ Status, customer name, address, the visit time, deposit status — those come
 **from the app**, which is the single source of truth. If you edit one of them
 here, the next sync will change it right back to what the app says. Nothing
 breaks; your edit just won't stick. So: **read** those fields, **change** only
-the two above.
+the controls above.
 
 Why so strict? Because the app, the customer's portal, Dana's phone, and this
 board all have to agree. Letting this board overrule the app is how records
-start disagreeing with each other — and then nobody knows what's true. Two
-fields are safe to hand you; the rest stay locked so the whole system stays
+start disagreeing with each other — and then nobody knows what's true. The three actions are fenced; the other fields stay projected so the whole system stays
 honest.
 
 ---

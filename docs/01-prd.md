@@ -88,6 +88,8 @@ Supabase Postgres as the single source of truth. Status machine: `requested → 
 - [ ] Illegal status transitions (e.g., `completed → scheduled`) are rejected in the database, with a transition audit table.
 - [ ] A booking spanning the DST boundary (Nov 2026) displays correctly for members and in `/today`.
 
+- [x] Office can mark a confirmed visit missed only after its finite recorded window ends, with a required reason and computed staff identity; the audit and status event commit together, and identical retries do not duplicate events (October 26 amendment).
+
 ### R4 — Deposits via Stripe (P0) · *traces: D3, D4, D6*
 $75 repair deposit through Stripe Checkout (hosted). **Payment state changes only from verified webhook events** — never from the success-redirect URL. Unpaid holds expire after 24h (n8n job) and release the slot.
 **Acceptance criteria**
@@ -105,7 +107,7 @@ n8n orchestrates side effects: on status transitions → create/update Airtable 
 - [ ] Nightly reconciliation posts a one-line "n bookings, n synced, 0 drift" (or a drift report) to Dana's Telegram.
 
 ### R6 — Owner console in Airtable (P0) · *traces: D2, D6, D7*
-Airtable base as a **projection** of Supabase (one-way sync), with linked records (Members ↔ Properties ↔ Bookings ↔ Payments) and views: *Today*, *This Week by Tech*, *Needs Review*, *Awaiting Deposit*, *Recently Completed*. An Interface page for Marie. Write-back limited to a whitelist — `mark completed`, `visit notes` — flowing Airtable automation → edge function → Supabase (Supabase remains authoritative; conflicts resolve to Supabase with an audit entry).
+Airtable base as a **projection** of Supabase (one-way sync), with linked records (Members ↔ Properties ↔ Bookings ↔ Payments) and views: *Today*, *This Week by Tech*, *Needs Review*, *Awaiting Deposit*, *Recently Completed*. An Interface page for Marie. Write-back limited to a whitelist — `mark completed`, `visit notes`, and the guarded `mark missed` action — flowing Airtable automation → edge function → Supabase (Supabase remains authoritative; conflicts resolve to Supabase with an audit entry).
 **Acceptance criteria**
 - [ ] Marie can run Monday admin (review week, mark completed, annotate) entirely in the Interface with no training doc longer than one page.
 - [ ] Editing any non-whitelisted field in Airtable is overwritten by the next sync and logged — demonstrably safe, not silently divergent.

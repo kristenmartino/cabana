@@ -83,7 +83,7 @@ When `mark_completed` is `false` or `"false"` (anything other than `true`), the 
 
 ## Scope: mark_completed only
 
-The whitelist in the edge function includes two fields: `mark_completed` and `visit_notes`. This automation handles only `mark_completed`.
+The whitelist in the edge function includes `mark_completed`, `visit_notes`, and the guarded `mark_missed` action ([setup](airtable-mark-missed.md)). This automation handles only `mark_completed`.
 
 `visit_notes` is deliberately NOT reverted on app rejection because:
 - Failures for visit_notes are rare (only 404 not-found if the booking was deleted).

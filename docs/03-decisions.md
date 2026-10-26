@@ -21,6 +21,12 @@ Compact ADR format: Context → Options → Decision → Trade-offs accepted →
 
 ---
 
+### ADR-01 amendment — October 26, 2026: explicit missed-visit staff action
+
+The approved write-back whitelist adds `mark_missed` as an action with a required reason and Airtable-computed collaborator identity. Reason and identity are action parameters, not generally writable booking fields. The service-only `mark_visit_missed` RPC requires a confirmed visit and a finite window whose end is in the past, records the original staff/reason audit, and uses the existing audited transition/outbox transaction. Identical retries are no-ops; rejected actions clear the checkbox with feedback; ambiguous delivery failures remain visible for review. Direct status edits stay outside the whitelist. This replaces backend-only missed testing with an office action and does not add a new status or reopen path. See `airtable-mark-missed.md`.
+
+---
+
 ## ADR-02 — Transactional outbox consumed by n8n, not fire-and-forget webhooks or a code-only pipeline
 
 **Context:** R5's bar is explicit: no side effect (Airtable row, owner ping, member email) may ever be silently lost. Three integration points fail independently.
