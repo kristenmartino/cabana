@@ -5,7 +5,6 @@ import { StatusPill } from "@/components/sailfish/StatusPill";
 import { getRequestStatus } from "@/lib/portal/data";
 import { PayDepositButton } from "@/components/portal/PayDepositButton";
 import { AwaitingPaymentRefresh } from "@/components/portal/AwaitingPaymentRefresh";
-import { SUPPORT } from "@/lib/brand";
 
 export default async function RequestStatus({ params, searchParams }: {
   params: Promise<{ id: string }>;
@@ -17,7 +16,6 @@ export default async function RequestStatus({ params, searchParams }: {
   if (!req) notFound();
   // The return URL requests a refresh; only the payment record establishes receipt.
   const confirming = paid === "1" && req.deposit?.due;
-  const telHref = `tel:${SUPPORT.phone.replace(/[^\d]/g, "")}`;
 
   return (
     <AppShell>
@@ -62,7 +60,7 @@ export default async function RequestStatus({ params, searchParams }: {
             <>
               <h2 className="font-display text-xl font-semibold text-deepwater">Repair deposit: ${req.deposit.amount}</h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                The deposit goes toward your repair. A visit time will be confirmed separately.
+                Pay the test deposit to continue to staff approval. A visit time is assigned separately.
               </p>
               <PayDepositButton bookingId={req.id} amount={req.deposit.amount} />
               <p className="mt-2 text-center text-xs text-muted-foreground">Stripe checkout · test mode. No real payment is collected.</p>
@@ -85,10 +83,6 @@ export default async function RequestStatus({ params, searchParams }: {
         </section>
       )}
 
-      <p className="mt-8 text-sm text-muted-foreground">
-        Questions? Call {SUPPORT.name} at{" "}
-        <a href={telHref} className="font-semibold text-deepwater hover:underline">{SUPPORT.phone}</a>.
-      </p>
     </AppShell>
   );
 }

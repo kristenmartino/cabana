@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { SUPPORT } from "@/lib/brand";
 import { enterDemo } from "@/app/actions";
 
 export function Landing() {
@@ -11,7 +10,7 @@ export function Landing() {
           <h1
             className="font-display text-[length:var(--text-h1)] leading-[1.05] font-bold text-deepwater"
           >
-            Request service. Stay informed.
+            Try the pool-service demo
           </h1>
           <p
             className="mt-4 text-lg text-muted-foreground max-w-md mx-auto"
@@ -49,17 +48,6 @@ export function Landing() {
           </Link>
         </div>
 
-        {/* Support info */}
-        <div
-          className="mt-16 pt-8 border-t border-border text-center text-sm text-muted-foreground"
-        >
-          <p>
-            Questions? Call {SUPPORT.name} at{" "}
-            <a href={`tel:${SUPPORT.phone.replace(/[^\d]/g, "")}`} className="font-semibold text-deepwater hover:underline">
-              {SUPPORT.phone}
-            </a>
-          </p>
-        </div>
       </div>
     </div>
   );

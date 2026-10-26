@@ -123,6 +123,7 @@ export default async function Home() {
                     <p className="truncate text-[15px] font-medium text-deepwater">{h.title}</p>
                     <span className="shrink-0 text-xs text-muted-foreground">{h.date}</span>
                   </div>
+                  <div className="mt-2"><StatusPill tone={h.tone}>{h.label}</StatusPill></div>
                   {h.note && <p className="mt-0.5 [overflow-wrap:anywhere] text-sm text-muted-foreground">{h.note}</p>}
                 </div>
               </li>

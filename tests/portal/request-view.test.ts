@@ -33,10 +33,11 @@ describe("member status page", () => {
   it("reports auto-qualified intake without presenting AI copy as staff review", async () => {
     const html = await renderRequest("awaiting_deposit", { amount: 75, status: "pending", due: true });
     expect(html).toContain("Repair deposit: $75");
-    expect(html).toContain("A visit time will be confirmed separately.");
+    expect(html).toContain("continue to staff approval");
+    expect(html).toContain("A visit time is assigned separately.");
     expect(html).toContain("4242 4242 4242 4242");
     expect(html).toContain("shared fictional data");
-    expect(html).not.toMatch(/Dana has reviewed|five minutes|your spot|Triaged/);
+    expect(html).not.toMatch(/Dana has reviewed|five minutes|your spot|Triaged|goes toward your repair|tel:/);
     savePreview("deposit", html);
   });
 
@@ -44,7 +45,7 @@ describe("member status page", () => {
     const html = await renderRequest("awaiting_deposit", { amount: 75, status: "pending", due: true }, "1");
     expect(html).toContain("Confirming your payment");
     expect(html).not.toContain("Deposit received");
-    expect(html).not.toContain("Pay $75 deposit");
+    expect(html).not.toContain("Pay $75 test deposit");
     savePreview("confirming", html);
   });
 

@@ -46,7 +46,7 @@ export function AppShell({
         {children}
       </main>
       <footer className="mx-auto max-w-md px-5 pb-8 text-center text-xs text-muted-foreground">
-        <p>Sailfish Pool Care · Jupiter, FL · (561) 555-0100</p>
+        <p>Sailfish Pool Care · Fictional company · Jupiter, FL</p>
       </footer>
     </div>
   );
