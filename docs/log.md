@@ -958,3 +958,7 @@ R5 / ADR-01 / ADR-02 replaces count-only drift with an ID join and comparison of
 ### October 26, 2026 — Repair drift while retaining QA history
 
 R5 / ADR-01 / ADR-02 separates explicitly retained QA history from the current booking projection. A dated `qa_history` reason can only apply to an ID absent from both app snapshots; current rows remain fully compared, and malformed history labels or duplicate/invalid IDs remain findings. Reports show current, historical and total counts. The authorized maintenance repair snapshots existing evidence, fills five missing current projections, corrects two stale window bounds and labels the fourteen reviewed historical rows without deleting or recreating them. Booking statuses, original notes/staff evidence, auth, payments, RLS, outbox delivery and the write-back whitelist are unchanged. Live repair and runtime receipts are recorded in the verification artifact after checks.
+
+### October 26, 2026 — Authentication notice copy
+
+R1 / ADR-05 / ADR-10: the final presentation pass found the shared-demo notice telling email sign-in users to use sample details, although sign-in requires their registered member email. Authentication pages now show only the fictional-service-data and Stripe-test-mode notice; the shared-demo sample-details warning remains on service screens. The existing auth-route detection controls this copy change. Sign-in behavior, styles, booking states, payments and integration delivery are unchanged. Verification covers desktop and phone-width sign-in/recovery screens after deployment.

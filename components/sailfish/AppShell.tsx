@@ -40,7 +40,9 @@ export function AppShell({
       <main className="mx-auto max-w-md px-5 pb-24 pt-5">
         {(showNav || isAuth) && (
           <p className="mb-5 border-b border-border pb-3 text-xs leading-relaxed text-muted-foreground">
-            Demo · shared fictional data · Stripe test mode. Use sample details only.
+            {isAuth
+              ? "Fictional service data · Stripe test mode."
+              : "Demo · shared fictional data · Stripe test mode. Use sample details only."}
           </p>
         )}
         {children}
