@@ -54,7 +54,7 @@ export type HomeData = {
   openRequests: {
     id: string; summary: string; tone: Tone; label: string; submitted: string;
   }[];
-  history: { id: string; title: string; date: string; note: string }[];
+  history: { id: string; title: string; date: string; note: string; tone: Tone; label: string }[];
   property: { id: string; accessNotes: string | null } | null;
 };
 
@@ -98,12 +98,16 @@ export async function getHomeData(): Promise<HomeData | null> {
 
   const history = bookings
     .filter((b) => HISTORY_STATUSES.has(b.status))
-    .map((b) => ({
-      id: b.id,
-      title: KIND_LABEL[b.kind] ?? "Service",
-      date: fmtDate(windowStart(b.window) ?? b.created_at),
-      note: b.visit_notes ?? b.request_text ?? "",
-    }));
+    .map((b) => {
+      const { tone, label } = requestState(b.status);
+      return {
+        id: b.id,
+        title: KIND_LABEL[b.kind] ?? "Service",
+        date: fmtDate(windowStart(b.window) ?? b.created_at),
+        note: b.visit_notes ?? b.request_text ?? "",
+        tone, label,
+      };
+    });
 
   return {
     firstName: member.full_name.split(" ")[0],

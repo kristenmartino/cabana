@@ -89,7 +89,7 @@ values ('d1000000-0000-4000-8000-000000000003', 'b1000000-0000-4000-8000-0000000
         'c1000000-0000-4000-8000-000000000001', 'a1000000-0000-4000-8000-000000000001',
         '7e000000-0000-4000-8000-000000000001',
         'repair', 'awaiting_deposit',
-        'Heater will not ignite. Pentair MasterTemp, error code and everything. Gate code on file.',
+        'My Pentair MasterTemp heater will not ignite. The gate code is on file.',
         true,
         tstzrange(date_trunc('hour', now()) + interval '3 days',
                   date_trunc('hour', now()) + interval '3 days 1 hour'));

@@ -34,7 +34,7 @@ export function PayDepositButton({
         className="mt-4 flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-coral transition-colors duration-150 hover:bg-[color-mix(in_oklab,var(--color-coral)_88%,white)] px-4 py-3.5 text-base font-semibold text-coral-foreground border border-border disabled:opacity-60"
       >
         <span>
-          {pending ? "Opening checkout…" : `Pay $${amount} deposit`}
+          {pending ? "Opening checkout…" : `Pay $${amount} test deposit`}
         </span>
       </button>
       {error && <p className="mt-2 text-center text-sm text-destructive">{error}</p>}

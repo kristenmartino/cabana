@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { AppShell } from "@/components/sailfish/AppShell";
-import { SUPPORT } from "@/lib/brand";
 
 export default function NotFound() {
   return (
@@ -18,13 +17,6 @@ export default function NotFound() {
         >
           Back to home
         </Link>
-        <p className="mt-4 text-sm text-muted-foreground">
-          Need help? Call {SUPPORT.name} at{" "}
-          <a href={`tel:${SUPPORT.phone.replace(/[^\d]/g, "")}`} className="font-semibold text-lagoon underline-offset-4 hover:underline">
-            {SUPPORT.phone}
-          </a>
-          .
-        </p>
       </div>
     </AppShell>
   );
