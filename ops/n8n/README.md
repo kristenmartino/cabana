@@ -59,7 +59,7 @@ ahead of the repo.
 |---|---|---|
 | `outbox-consumer.json` | Webhook (Supabase DB webhook nudge) **and** 60s cron sweep | Pull unprocessed outbox rows, dedupe on `dedupe_key`, branch by topic → Airtable upsert / Telegram ping / member email; mark `processed_at`; on failure increment `attempts`, backoff, then dead-letter + alert |
 | `deposit-expiry.json` | Cron (15 min) | `awaiting_deposit` older than 24h → set actor `system:expiry`, transition to `cancelled`, notify member + Dana |
-| `reconciliation.json` | Cron (nightly) | Count/compare Supabase vs Airtable; post one-line result (or drift report) to Dana's Telegram |
+| `reconciliation.json` | Cron (03:00 America/New_York) or manual | Compare booking IDs and 11 projected fields; report redacted differences or incomplete scans to Dana's Telegram; see [comparison contract](../../docs/reconciliation.md) |
 | `health-check.json` | Cron (5 min) | GET `/api/health`; alert on failure or outbox age breach |
 | `error-workflow.json` | n8n error trigger | The alarm on the alarm: any workflow failure → Telegram alert + `dead_letters` row. Set as the instance-level error workflow. |
 

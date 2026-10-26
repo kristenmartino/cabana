@@ -44,6 +44,14 @@ The approved write-back whitelist adds `mark_missed` as an action with a require
 
 **Amendment (#20):** the two delivery sinks (Airtable projection, Telegram owner ping) are tracked as *independent* legs (`outbox.airtable_delivered_at` / `telegram_delivered_at`, 0019); a DB trigger stamps `processed_at` only when both are done. So a flaky sink (the Railway↔Telegram TCP timeout) no longer *blocks* a row whose data already landed — a Telegram-only failure dead-letters *that leg alone* while the Airtable projection stays delivered. (A Telegram retry does still re-run the Airtable upsert, but idempotently: the only-if-null leg mark no-ops, so no duplicate projection.) This does not add a channel (Telegram remains the owner's one ping); it removes the coupling.
 
+**Amendment (October 26, 2026):** reconciliation joins booking IDs and compares
+11 projection fields rather than equating matching row counts with matching
+data. It reports missing/unexpected/duplicate/invalid identities and redacted
+field differences, without automatic repair. Complete paginated reads and a
+second app snapshot prevent failed or changing scans from claiming success.
+See `reconciliation.md`; outbox delivery, write-back permissions and status
+transitions are unchanged.
+
 ---
 
 ## ADR-03 — Stripe Checkout (hosted), with webhooks as the sole authority on payment state
