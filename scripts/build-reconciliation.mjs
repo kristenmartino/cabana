@@ -7,14 +7,14 @@ const source = readFileSync(new URL('ops/n8n/reconciliation.mjs', root), 'utf8')
 const target = new URL('ops/n8n/workflows/reconciliation.json', root);
 const base = 'https://uuviebpmiwzjyabucheo.supabase.co';
 const supabaseCredential = { httpCustomAuth: { id: 'REPLACE_WITH_SUPABASE_CRED_ID', name: 'Supabase service role' } };
-const airtableCredential = { httpHeaderAuth: { id: 'REPLACE_WITH_AIRTABLE_CRED_ID', name: 'Airtable' } };
+const airtableCredential = { httpHeaderAuth: { id: 'REPLACE_WITH_AIRTABLE_CRED_ID', name: 'Airtable PAT' } };
 const select = 'id,member_id,kind,status,request_text,window,deposit_required,visit_notes,members(full_name),properties(address),techs(display_name),payments(status)';
 function http(name, id, position, url, credentials, pagination) {
   return { name, id, position, type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, executeOnce: true, retryOnFail: true, maxTries: 3, waitBetweenTries: 2000, credentials,
     parameters: { method: 'GET', url, authentication: 'genericCredentialType', genericAuthType: Object.keys(credentials)[0],
       ...(pagination === 'app' ? { sendHeaders: true, headerParameters: { parameters: [{ name: 'Prefer', value: 'count=exact' }] } } : {}),
       options: { timeout: 25000, response: { response: { fullResponse: true, responseFormat: 'json' } },
-        pagination: { pagination: { paginationMode: 'updateAParameterInEachRequest', parameters: { parameters: [{ type: 'qs', name: 'offset', value: pagination === 'app' ? '={{ $pageCount * 1000 }}' : '={{ $response.body.offset }}' }] }, paginationCompleteWhen: 'other', completeExpression: pagination === 'app' ? '={{ Array.isArray($response.body) && $response.body.length < 1000 }}' : '={{ $response.body.offset === undefined }}', limitPagesFetched: false } } } } };
+        pagination: { pagination: { paginationMode: 'updateAParameterInEachRequest', parameters: { parameters: [{ type: 'qs', name: 'offset', value: pagination === 'app' ? '={{ $pageCount * 1000 }}' : '={{ $response.body.offset }}' }] }, paginationCompleteWhen: 'other', completeExpression: pagination === 'app' ? '={{ Array.isArray($response.body) && $response.body.length < 1000 }}' : '={{ $response.body.offset === undefined }}', limitPagesFetched: false, requestInterval: pagination === 'airtable' ? 250 : 0 } } } } };
 }
 const appUrl = `${base}/rest/v1/bookings?select=${select}&order=id.asc&limit=1000`;
 const nodes = [

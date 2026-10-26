@@ -87,7 +87,8 @@
               },
               "paginationCompleteWhen": "other",
               "completeExpression": "={{ Array.isArray($response.body) && $response.body.length < 1000 }}",
-              "limitPagesFetched": false
+              "limitPagesFetched": false,
+              "requestInterval": 0
             }
           }
         }
@@ -109,7 +110,7 @@
       "credentials": {
         "httpHeaderAuth": {
           "id": "REPLACE_WITH_AIRTABLE_CRED_ID",
-          "name": "Airtable"
+          "name": "Airtable PAT"
         }
       },
       "parameters": {
@@ -139,7 +140,8 @@
               },
               "paginationCompleteWhen": "other",
               "completeExpression": "={{ $response.body.offset === undefined }}",
-              "limitPagesFetched": false
+              "limitPagesFetched": false,
+              "requestInterval": 250
             }
           }
         }
@@ -200,7 +202,8 @@
               },
               "paginationCompleteWhen": "other",
               "completeExpression": "={{ Array.isArray($response.body) && $response.body.length < 1000 }}",
-              "limitPagesFetched": false
+              "limitPagesFetched": false,
+              "requestInterval": 0
             }
           }
         }
