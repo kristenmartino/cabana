@@ -21,6 +21,31 @@ fields (`mark_completed`, `mark_missed`, reason/identity/result) and
 `last_synced` are excluded. This is a projection audit, not an audit of every
 database column or a claim that staff actions succeeded.
 
+## Retained QA history
+
+Original Airtable demo/QA rows can outlive their source booking after a demo
+reset. Keep their record IDs, creation times, field values, notes and staff
+evidence. An operator may explicitly annotate a confirmed historical row in the
+plain long-text `qa_history` field:
+
+`Archived 2026-10-26T22:00:00.000Z | Historical demo booking absent from the app; retain original QA evidence.`
+
+The timestamp must be a valid canonical UTC ISO timestamp and the reason must
+be 20–1000 characters. Absence alone never archives a record. The scanner only
+treats the annotation as history when the booking ID is absent from **both** app
+snapshots. A current booking with a valid history annotation raises a conflict and
+still receives every field check. Malformed annotations and invalid/duplicate
+IDs remain drift, including duplicates within history. A booking that changes
+during scanning is not archived away.
+
+Reports state app, current Airtable and retained-history counts separately, plus
+the total Airtable count. Historical contents have no current app row to compare
+against; they are retained evidence, not a claimed current match. The scanner
+reads the whole table, without a view/filter that could conceal current drift.
+Provision the `qa_history` long-text field before publishing the generated
+workflow that selects it. This field is metadata only; it cannot write back to
+the app or change a booking's status.
+
 Blank, omitted and null Airtable values are equivalent. Text line endings are
 normalized; meaningful whitespace is preserved. Window timestamps require an
 explicit offset and compare as UTC instants, so equivalent timezone displays
@@ -77,3 +102,11 @@ verify the Telegram receipt identifies the booking and mismatched fields. Restor
 the exact original values and re-run. Confirm that booking clears and the app
 record/audit/outbox did not change. Existing drift elsewhere must remain visible;
 do not delete records or rewrite the source just to obtain a green report.
+
+For a one-time repair, snapshot both systems and all QA evidence first. Recheck
+the exact allowlist against fresh source rows, upsert only the missing current
+projections and correct only the reported current fields. Keep the source app
+and its transitions/outbox untouched. Annotate only the reviewed historical
+rows; verify all their pre-existing fields and creation times remain exact.
+Re-run the published workflow and confirm its Telegram receipt. This maintenance
+repair does not turn reconciliation into an automatic repair job.

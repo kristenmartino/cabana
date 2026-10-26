@@ -146,3 +146,57 @@ describe('complete source pagination and deployed code', () => {
     expect(workflow.settings.timezone).toBe('America/New_York');
   });
 });
+
+describe('explicit QA history retention', () => {
+  const annotation = 'Archived 2026-10-26T22:00:00.000Z | Historical demo booking absent from the app; retain original QA evidence.';
+  const historyBooking = { ...booking, id: '20000000-0000-4000-8000-000000000001' };
+  const history = (): ReturnType<typeof record> => ({ ...record(historyBooking, 'recHistory'), fields: { ...record(historyBooking).fields, qa_history: annotation } });
+
+  it('retains explicitly archived rows separately and reports current counts truthfully', () => {
+    const result = reconcile([booking], [record(), history()], [booking]);
+    expect(result).toMatchObject({ status: 'matched', app_count: 1, airtable_count: 2, active_airtable_count: 1, history_record_count: 1, history_record_ids: ['recHistory'], compared_bookings: 1, issue_count: 0 });
+    expect(result.text).toContain('1 app bookings; 1 current Airtable records');
+    expect(result.text).toContain('1 historical QA records retained separately (2 Airtable records total)');
+    expect(result.text).not.toContain(annotation);
+  });
+
+  it('cannot hide a current booking or any of its field mismatches by marking it as history', () => {
+    const row = record(); row.fields.qa_history = annotation; row.fields.status = 'cancelled';
+    const result = reconcile([booking], [row], [booking]);
+    expect(result.status).toBe('drift');
+    expect(result.counts).toMatchObject({ history_conflict: 1, field_mismatch: 1 });
+    expect(result.history_record_count).toBe(0);
+    expect(result.compared_bookings).toBe(1);
+  });
+
+  it('never automatically archives an unmatched record or accepts an undated/malformed label', () => {
+    for (const value of [undefined, '', 'QA', 'Archived 2026-02-31T22:00:00.000Z | Invalid calendar date cannot archive this record.']) {
+      const row = history(); row.fields.qa_history = value;
+      const result = reconcile([], [row], []);
+      expect(result.status).toBe('drift');
+      expect(result.counts.unexpected_booking).toBe(1);
+      expect(result.history_record_count).toBe(0);
+      if (value) expect(result.counts.invalid_history).toBe(1);
+    }
+  });
+
+  it('still reports duplicate IDs and invalid identities within retained history', () => {
+    const first = history(), second = { ...history(), id: 'recHistoryDuplicate' };
+    expect(reconcile([], [first, second], []).counts.duplicate_booking).toBe(1);
+    first.fields.booking_id = 'not a UUID';
+    const invalid = reconcile([], [first], []);
+    expect(invalid.counts.invalid_booking_id).toBe(1);
+    expect(invalid.history_record_count).toBe(0);
+  });
+
+  it('does not archive away a booking removed or added during the scan', () => {
+    const row = history();
+    const removed = reconcile([historyBooking], [row], []);
+    expect(removed.status).toBe('incomplete');
+    expect(removed.counts.history_conflict).toBe(1);
+    expect(removed.history_record_count).toBe(0);
+    const added = reconcile([], [row], [historyBooking]);
+    expect(added.status).toBe('incomplete');
+    expect(added.history_record_count).toBe(0);
+  });
+});

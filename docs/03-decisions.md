@@ -52,6 +52,13 @@ second app snapshot prevent failed or changing scans from claiming success.
 See `reconciliation.md`; outbox delivery, write-back permissions and status
 transitions are unchanged.
 
+**History retention amendment (October 26, 2026):** retained Airtable demo/QA
+rows receive explicit dated archival annotations rather than deletion or
+fabricated replacement app bookings. Reconciliation distinguishes that history
+from the current projection and reports both counts. An annotation cannot
+exclude an ID present in either app snapshot, suppress duplicate/invalid IDs,
+or exempt a current field difference. No write-back permission is added.
+
 ---
 
 ## ADR-03 — Stripe Checkout (hosted), with webhooks as the sole authority on payment state
